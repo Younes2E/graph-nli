@@ -11,7 +11,7 @@ from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokeni
 nlp = spacy.load("en_core_web_sm")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = "cpu"
+#device = "cpu"
 
 dataset = load_dataset("stanfordnlp/snli")
 train_set = dataset["train"].filter(lambda x: x["label"] != -1)
@@ -55,17 +55,12 @@ def extract_triplets(text):
             sujet = None
             objet = None
 
-            # Exploration des dépendances directes du verbe
             for child in token.children:
-                # 1. Capture du sujet
                 if "subj" in child.dep_:
                     sujet = child.text
 
-                # 2. Capture de l'objet direct, de l'attribut ou du complément
                 if child.dep_ in ["dobj", "attr", "acomp"]:
                     obj_text = child.text
-                    # Optionnel : Si l'objet a lui-même une préposition (ex: "president of the USA")
-                    # on la récupère pour garder le contexte complet du nœud
                     preps = [c for c in child.children if c.dep_ == "prep"]
                     for p in preps:
                         pobjs = [
@@ -75,15 +70,12 @@ def extract_triplets(text):
                             obj_text += f" {p.text} {pobjs[0]}"
                     objet = obj_text
 
-                # 3. Capture si la relation passe par une préposition directe (ex: "jumping over...")
                 elif child.dep_ == "prep":
                     pobjs = [c.text for c in child.children if c.dep_ == "pobj"]
                     if pobjs:
                         objet = f"{child.text} {pobjs[0]}"
 
-            # Si on a trouvé un couple Sujet/Objet valide, on extrait le triplet
             if sujet and objet:
-                # Gestion de la négation ("don't", "never", "not") pour ne pas fausser le sens
                 neg = "".join(
                     [c.text + " " for c in token.children if c.dep_ == "neg"]
                 )
@@ -95,20 +87,23 @@ def extract_triplets(text):
 
 
 
-def graph_build(text):
+def graph_build(text): 
     propositions = extract_atomic_propositions(text)
     relations = []
     for p in propositions:
         triplets = extract_triplets(p)
-        relations.append(triplets)
+        for t in triplets:
+            relations.append(t)
             
     return propositions, relations
 
 
 
 
-texts = ["Frank's dog doesn't eat fruits, he is allergic","Simon didn't call me back, he is busy."]
-texts_snli = [train_set[i][j] for j in ["premise", "hypothesis"] for i in [0,15,56,78,150]]
+texts = ["Frank's dog doesn't eat fruits, he is allergic","Simon didn't call me back, he is busy.", "Younes is working on a project. His friend is playing a video game."]
+texts_snli = [train_set[i][j] for j in ["premise", "hypothesis"] for i in [128,256,512,1024,2048]]
+for t in texts:
+    texts_snli.append(t)
 
 for t in texts_snli:
     prop_t, graph_t = graph_build(t)
