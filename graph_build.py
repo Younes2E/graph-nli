@@ -1,14 +1,8 @@
 import json
-import matplotlib.pyplot as plt
-import networkx as nx
 import torch
-import spacy
 from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer
+from transformers import AutoModel, AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer
 
-
-
-nlp = spacy.load("en_core_web_sm")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #device = "cpu"
@@ -21,6 +15,14 @@ train_set = dataset["train"].filter(lambda x: x["label"] != -1)
 model_id = "Zual/MPropositioneur-V2-large"
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 model = AutoModelForCausalLM.from_pretrained(model_id, dtype=torch.float16).to(device)
+
+qwen_model_id = "Qwen/Qwen2.5-7B-Instruct"
+qwen_tokenizer = AutoTokenizer.from_pretrained(qwen_model_id)
+qwen_model = AutoModelForCausalLM.from_pretrained(
+    qwen_model_id,
+    torch_dtype="auto").to(device)
+
+
 
 
 def extract_atomic_propositions(text):
@@ -38,81 +40,60 @@ def extract_atomic_propositions(text):
     return set(propositions)
 
 
+def extract_triplets_qwen(text):
+    prompt = f"Extract all factual (subject, predicate, object) triples from sentence. One triple per line in the format: subject | predicate | object. No explanations. If no triple can be extracted, write nothing. Sentence: {text}"
 
-def extract_triplets(text):
-    doc = nlp(text)
-    spans = list(doc.ents) + list(doc.noun_chunks)
-    spans = spacy.util.filter_spans(spans)
+    messages = [
+    {"role": "user", "content": prompt}
+    ]
+    text = qwen_tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True
+    )
+    model_inputs = qwen_tokenizer([text], return_tensors="pt").to(device)
 
-    with doc.retokenize() as retokenizer:
-        for span in spans:
-            retokenizer.merge(span)
+    generated_ids = qwen_model.generate(
+        **model_inputs,
+        max_new_tokens=512
+    )
+    generated_ids = [
+        output_ids[len(input_ids):] for input_ids, output_ids in zip(model_inputs.input_ids, generated_ids)
+    ]
+
+    response = qwen_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
 
     triples = []
-
-    for token in doc:
-        if token.pos_ in ["VERB", "AUX"] or token.dep_ == "ROOT":
-            sujet = None
-            objet = None
-
-            for child in token.children:
-                if "subj" in child.dep_:
-                    sujet = child.text
-
-                if child.dep_ in ["dobj", "attr", "acomp"]:
-                    obj_text = child.text
-                    preps = [c for c in child.children if c.dep_ == "prep"]
-                    for p in preps:
-                        pobjs = [
-                            cc.text for cc in p.children if cc.dep_ == "pobj"
-                        ]
-                        if pobjs:
-                            obj_text += f" {p.text} {pobjs[0]}"
-                    objet = obj_text
-
-                elif child.dep_ == "prep":
-                    pobjs = [c.text for c in child.children if c.dep_ == "pobj"]
-                    if pobjs:
-                        objet = f"{child.text} {pobjs[0]}"
-
-            if sujet and objet:
-                neg = "".join(
-                    [c.text + " " for c in token.children if c.dep_ == "neg"]
-                )
-                relation = f"{neg}{token.text}"
-
-                triples.append((sujet, relation, objet))
-
+    for line in response.split("\n"):
+        t = line.split(" | ")
+        triples.append((t[0], t[1], t[2]))
+    
     return triples
 
 
-
-def graph_build(text): 
+def pipeline(text): 
     propositions = extract_atomic_propositions(text)
-    relations = []
+    triplets_qwen = []
     for p in propositions:
-        triplets = extract_triplets(p)
-        for t in triplets:
-            relations.append(t)
+        triplets_qwen+=extract_triplets_qwen(p)
             
-    return propositions, relations
+    return propositions, triplets_qwen
 
 
 
 
-texts = ["Frank's dog doesn't eat fruits, he is allergic","Simon didn't call me back, he is busy.", "Younes is working on a project. His friend is playing a video game."]
-texts_snli = [train_set[i][j] for j in ["premise", "hypothesis"] for i in [128,256,512,1024,2048]]
+texts = ["Frank's dog doesn't eat fruits, he is allergic","Simon didn't call me back, he is busy.", "Younes is working on a project. His friend is playing a video game.", "I have never seen anyone like Frank, he must be gifted.","He must be sick.", "He is sick."]
+texts_snli = [train_set[i][j] for j in ["premise", "hypothesis"] for i in [4131,2656,922,1384,7048]]
 for t in texts:
     texts_snli.append(t)
 
 for t in texts_snli:
-    prop_t, graph_t = graph_build(t)
-    print(f"\nPhrase : {t} :")
-    print(f"Propositions : {prop_t}")
-    print(f"Triplets avant atomisation : {extract_triplets(t)}")
-    print(f"Triplets apres atomisation : {graph_t}")
-    
-    
+    prop_t, t_qwen = pipeline(t)
+    print(f"{'-'*50}\nPhrase : {t} \nAvant Atomisation :")
+    print(f"Triplet Qwen : {extract_triplets_qwen(t)}")
+    print(f"Apres Atomisation : {prop_t}")
+    print(f"Triplets Qwen : {t_qwen}")
+
     
     
     
