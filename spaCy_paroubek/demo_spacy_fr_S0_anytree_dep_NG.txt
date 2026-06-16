@@ -1,0 +1,9 @@
+S0MWU17/assurance/NOUN/ccomp
+├── S0MWU14/vraiment/ADV/nsubj
+│   └── S0MWU13/une/DET/det
+├── S0MWU16/bonne/ADJ/amod
+│   └── S0MWU15/très/ADV/advmod
+└── S0MWU19/Paul/PROPN/nmod
+    └── S0MWU18/à/ADP/case
+S0MWU19/Paul/PROPN/nmod
+└── S0MWU18/à/ADP/case

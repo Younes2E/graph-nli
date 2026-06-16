@@ -58,5 +58,18 @@
     {
         "input": "He uses his phone as a microphone.",
         "output": [["phone", "UsedFor", "microphone"], ["He", "PerformsAction", "uses"], ["phone", "ReceivesAction", "uses"]]
+    },
+    {
+        "input": "He must be sick.",
+        "output": [["He", "HasProperty", "sick"], ["sick", "HasModality", "Certainty"]]
+    },
+    {
+        "input": "His boss told him to stay at work.",
+        "output": [["His boss", "PerformsAction", "told"], ["he", "ReceivesAction", "told"], ["he", "PerformsAction", "stay"],["told", "HasContext", "stay"],["stay", "AtLocation", "work"], ["stay", "HasModality", "Obligation"]]
+    },
+    {
+        "input": "Five cats are fighting.",
+        "output": [["cats", "PerformsAction", "fighting"], ["cats", "HasQuantity", "five"]]
     }
+
 ]

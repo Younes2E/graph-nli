@@ -1,0 +1,193 @@
+/* Created by igraph 0.10.13-111-g3dd336a4e */
+digraph {
+  0 [
+    label="dû | V_E_R_B"
+    lbl="[GRAPH_ROOT]"
+  ];
+  1 [
+    label="prudent | A_D_J"
+    lbl="prudent | A_D_J"
+  ];
+  2 [
+    label="aurions | V_E_R_B"
+    lbl="aurions | V_E_R_B"
+  ];
+  3 [
+    label="pas | A_D_V"
+    lbl="pas | A_D_V"
+  ];
+  4 [
+    label="prendre | V_E_R_B"
+    lbl="prendre | V_E_R_B"
+  ];
+  5 [
+    label=". | P_U_N_C_T"
+    lbl=". | P_U_N_C_T"
+  ];
+  6 [
+    label="S' | S_C_O_N_J"
+    lbl="S' | S_C_O_N_J"
+  ];
+  7 [
+    label="il | P_R_O_N"
+    lbl="il | P_R_O_N"
+  ];
+  8 [
+    label="avait | A_U_X"
+    lbl="avait | A_U_X"
+  ];
+  9 [
+    label="été | A_U_X"
+    lbl="été | A_U_X"
+  ];
+  10 [
+    label="plus | A_D_V"
+    lbl="plus | A_D_V"
+  ];
+  11 [
+    label="nous | P_R_O_N"
+    lbl="nous | P_R_O_N"
+  ];
+  12 [
+    label="n' | A_D_V"
+    lbl="n' | A_D_V"
+  ];
+  13 [
+    label="faire | V_E_R_B"
+    lbl="faire | V_E_R_B"
+  ];
+  14 [
+    label="assurance | N_O_U_N"
+    lbl="assurance | N_O_U_N"
+  ];
+  15 [
+    label="vraiment | A_D_V"
+    lbl="vraiment | A_D_V"
+  ];
+  16 [
+    label="bonne | A_D_J"
+    lbl="bonne | A_D_J"
+  ];
+  17 [
+    label="Paul | P_R_O_P_N"
+    lbl="Paul | P_R_O_P_N"
+  ];
+  18 [
+    label="une | D_E_T"
+    lbl="une | D_E_T"
+  ];
+  19 [
+    label="très | A_D_V"
+    lbl="très | A_D_V"
+  ];
+  20 [
+    label="à | A_D_P"
+    lbl="à | A_D_P"
+  ];
+
+  0 -> 0 [
+    label=S0R10ROOT
+    lbl=None
+    curved=0
+  ];
+  0 -> 1 [
+    label=S0R5nsubj
+    lbl=S0R10ROOT
+    curved=0
+  ];
+  0 -> 2 [
+    label="S0R8aux:tense"
+    lbl=S0R5nsubj
+    curved=0
+  ];
+  0 -> 3 [
+    label=S0R9advmod
+    lbl="S0R8aux:tense"
+    curved=0
+  ];
+  0 -> 4 [
+    label=S0R12xcomp
+    lbl=S0R9advmod
+    curved=0
+  ];
+  0 -> 5 [
+    label=S0R20punct
+    lbl=S0R12xcomp
+    curved=0
+  ];
+  1 -> 6 [
+    label=S0R0mark
+    lbl=S0R20punct
+    curved=0
+  ];
+  1 -> 7 [
+    label=S0R1nsubj
+    lbl=S0R0mark
+    curved=0
+  ];
+  1 -> 8 [
+    label="S0R2aux:tense"
+    lbl=S0R1nsubj
+    curved=0
+  ];
+  1 -> 9 [
+    label=S0R3cop
+    lbl="S0R2aux:tense"
+    curved=0
+  ];
+  1 -> 10 [
+    label=S0R4advmod
+    lbl=S0R3cop
+    curved=0
+  ];
+  2 -> 11 [
+    label=S0R6nsubj
+    lbl=S0R4advmod
+    curved=0
+  ];
+  2 -> 12 [
+    label=S0R7advmod
+    lbl=S0R6nsubj
+    curved=0
+  ];
+  4 -> 13 [
+    label=S0R11dep
+    lbl=S0R7advmod
+    curved=0
+  ];
+  4 -> 14 [
+    label=S0R17ccomp
+    lbl=S0R11dep
+    curved=0
+  ];
+  14 -> 15 [
+    label=S0R14nsubj
+    lbl=S0R17ccomp
+    curved=0
+  ];
+  14 -> 16 [
+    label=S0R16amod
+    lbl=S0R14nsubj
+    curved=0
+  ];
+  14 -> 17 [
+    label=S0R19nmod
+    lbl=S0R16amod
+    curved=0
+  ];
+  15 -> 18 [
+    label=S0R13det
+    lbl=S0R19nmod
+    curved=0
+  ];
+  16 -> 19 [
+    label=S0R15advmod
+    lbl=S0R13det
+    curved=0
+  ];
+  17 -> 20 [
+    label=S0R18case
+    lbl=S0R15advmod
+    curved=0
+  ];
+}

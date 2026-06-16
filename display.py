@@ -1,20 +1,20 @@
 from datasets import load_dataset
 import matplotlib.pyplot as plt
-from graph import build_graph, extract_triplets_qwen
+from combined import extract_triples_propositions, extract_triples
 import networkx as nx
 import matplotlib
 import os
 
 
-def plot_knowledge_graph(triplets, nom_fichier, text):
-    if not triplets:
+def plot_knowledge_graph(triples, file, text):
+    if not triples:
         print("Graph vide")
         return
 
     G = nx.DiGraph()
     edge_labels = {}
     
-    for subj, rel, obj in triplets:
+    for subj, rel, obj in triples:
         G.add_edge(subj, obj)
         edge_labels[(subj, obj)] = rel
 
@@ -32,10 +32,9 @@ def plot_knowledge_graph(triplets, nom_fichier, text):
     
     matplotlib.use('Agg') 
     
-    
-    plt.savefig(nom_fichier, format="png", dpi=300)
+    plt.savefig(file, format="png", dpi=300)
     plt.close() 
-    print(f"Graphe sauvegardé avec succès dans : {os.path.abspath(nom_fichier)}")
+    print(f"Graphe sauvegardé avec succès dans : {os.path.abspath(file)}")
 
 
 
@@ -60,14 +59,15 @@ phrases = [
     "John is eating a sandwich while Claire eats a pizza",
     "John is eating a ham pizza and a chicken sandwich.",
     "John is eating meat.",
-    "They grew up in San Fransisco and now they both live in New York. One of them has an appartment in Manhattan."
+    "They grew up in San Fransisco and now they both live in New York. One of them has an appartment in Manhattan.",
+    "Šafov is a village and municipality (obec) in Znojmo District in the South Moravian Region of the Czech Republic."
 ]
 
 if __name__ == "__main__":
     for i, p in enumerate(phrases):
-        g_p = build_graph(p)
+        g_p = extract_triples_propositions(p)
         plot_knowledge_graph(g_p,  f"images/graphes_test/propositionned/graph_{i}.png", phrases[i])
-        g_q = extract_triplets_qwen(p)
+        g_q = extract_triples(p)
         plot_knowledge_graph(g_q,  f"images/graphes_test/direct/graph_{i}.png", phrases[i])
 
 

@@ -1,0 +1,22 @@
+# S' il avait été plus prudent nous n' aurions pas dû faire prendre une vraiment très bonne assurance à Paul .
+S0MWU10
+├── S0MWU5
+│   ├── S0MWU0
+│   ├── S0MWU1
+│   ├── S0MWU2
+│   ├── S0MWU3
+│   └── S0MWU4
+├── S0MWU8
+│   ├── S0MWU6
+│   └── S0MWU7
+├── S0MWU9
+├── S0MWU12
+│   ├── S0MWU11
+│   └── S0MWU17
+│       ├── S0MWU14
+│       │   └── S0MWU13
+│       ├── S0MWU16
+│       │   └── S0MWU15
+│       └── S0MWU19
+│           └── S0MWU18
+└── S0MWU20

@@ -24,25 +24,29 @@ list_relations  = {
 "PerformsAction" : "[SUBJECT] is doing the action [OBJECT], [OBJECT] is usually a verb"}
 
 
-prompt = f"""
-Extract all factual ([SUBJECT], relation, [OBJECT]) triples from sentence. 
-One triple per line in the format: 
-[SUBJECT] | relation | [OBJECT]
+    system_prompt = f"""You are a strict, deterministic Information Extraction engine. 
+    Your sole task is to extract factual triples from the input sentence using ONLY the allowed relations provided below.
 
-No explanations. If no triple can be extracted, write nothing. 
+    ALLOWED RELATIONS AND LOGICAL CONSTRAINTS:
+    {json.dumps(relations, indent=2)}
 
-Allowed Relations and Type Constraints:
-{json.dumps(list_relations, indent=2)}
-Do not use any other relation.
+    CRITICAL EXTRACTION RULES:
+    1. If an action is negated (e.g., "didn't call", "is not eating"), you MUST capture the negation inside the verb node using 'not' (e.g., 'not call', 'not eating').
+    2. When an action involves multiple elements at once (e.g., an actor, a target, a recipient, a tool, or a location), do NOT link the secondary elements to each other. Instead, make the action the central hub and ALL links must involve the action.
 
-EXEMPLES:
+    FEW-SHOT EXAMPLES:
+    {exemples}"""
+    
+    user_prompt = f"""
+    You must extract all factual ([SUBJECT], [RELATION], [OBJECT]) triples from sentence. 
 
+    One triple per line in the format: 
+    [SUBJECT] | [RELATION] | [OBJECT]
 
-Sentence: {text}"""
+    No explanations. If no triple can be extracted, write nothing. 
 
-EXEMPLES = [
-
-]
+    Sentence: {text}
+    """
 
 Input: John is eating a ham sandwich at McDonald's.
 Output:

@@ -10,7 +10,7 @@ model_id = "Zual/MPropositioneur-V2-large"
 tokenizer = AutoTokenizer.from_pretrained(model_id)
 model = AutoModelForCausalLM.from_pretrained(model_id, dtype=torch.float16).to(device)
 
-def extract_atomic_propositions(text):
+def extract_propositions(text):
     prompt = f"<|im_start|>user\nAtomize: {text}<|im_end|>\n<|im_start|>assistant\n"
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=8192).to(model.device)
     
@@ -34,9 +34,20 @@ with open('data/relations.json', encoding='utf-8') as file:
     relations = json.load(file)
 
 with open('data/exemples.json', encoding='utf-8') as file:
-    exemples = json.load(file)
+    exemples_raw = json.load(file)
+    lines = []
+    for line in exemples_raw:
+        lines.append(f'Input: "{line["input"]}"')
+        lines.append("Output:")
+        for triple in line['output']:
+            lines.append(" | ".join(triple))
+        lines.append("\n")
+    exemples = "\n".join(lines)
 
-def extract_triplets_qwen(text):
+
+
+
+def extract_triples(text):
     prompt = f"""
     Extract all factual ([SUBJECT], [RELATION], [OBJECT]) triples from sentence. 
     One triple per line in the format: 
@@ -53,13 +64,13 @@ def extract_triplets_qwen(text):
     2. When an action involves multiple elements at once (e.g., an actor, a target, a recipient, a tool, or a location), do NOT link the secondary elements to each other. Instead, make the action the central hub and ALL links must involve the action.
 
     EXEMPLES:
-    
+    {exemples}
 
     
     Sentence: {text}"""
 
     messages = [
-        {"role": "system", "content": "You are Qwen, created by Alibaba Cloud. You are a helpful information extraction system."},
+        {"role": "system", "content": "You are a deterministic Information Extraction expert."},
         {"role": "user", "content": prompt}
     ]
     text = qwen_tokenizer.apply_chat_template(
@@ -92,11 +103,11 @@ def extract_triplets_qwen(text):
     return triples
 
 
-def build_graph(text): 
-    propositions = extract_atomic_propositions(text)
+def extract_triples_propositions(text): 
+    propositions = extract_propositions(text)
     triplets_qwen = []
     for p in propositions:
-        triplets_qwen+=extract_triplets_qwen(p)
+        triplets_qwen += extract_triples(p)
             
     return set(triplets_qwen)
 

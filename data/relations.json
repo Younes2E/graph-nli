@@ -1,10 +1,13 @@
 {
+    "PerformsAction" : "[SUBJECT] is doing the action [OBJECT], [OBJECT] is usually a verb",
+    "ReceivesAction" : "[OBJECT] can be done to [SUBJECT]",
     "FormOf" : "[SUBJECT] is an inflected form of [OBJECT]" ,
     "IsA" : "[SUBJECT] is a strict taxonomic subtype, class, or specific instance of [OBJECT]" ,
-    "Possibly" : "[SUBJECT] is conditionally, hypothetically, or possibly described as [OBJECT], categorized as [OBJECT], or executing [OBJECT]",
+    "HasModality" : "[SUBJECT] has its reality status, necessity, or possibility specified by the modal state [OBJECT] (e.g., Obligation, Possibility, Counterfactual, Certainty)",
+    "HasCondition" : "[SUBJECT] (an action or state) depends on, is restricted by, or is conceded by the clause [OBJECT] (e.g., logical conditions like 'if', or concessions like 'although')",
     "PartOf": "[SUBJECT] is an intrinsic physical component, member, or structural part of [OBJECT]",
     "HasA" : "[SUBJECT] physically possesses or owns [OBJECT]",
-    "Contains" : "[SUBJECT] physically encloses, holds inside, or is chemically/structurally composed of [OBJECT] inside it",
+    "Contains" : "[SUBJECT] physically encloses, holds inside, or traps [OBJECT] within its boundaries",
     "HasQuantity" : "[SUBJECT] has a quantity of [OBJECT]",
     "UsedFor" : "[SUBJECT] is used for [OBJECT]; the purpose of [SUBJECT] is [OBJECT]" ,
     "CapableOf" : "Something that [SUBJECT] can typically do is [OBJECT]" ,
@@ -19,7 +22,5 @@
     "Antonym" : "[SUBJECT] and [OBJECT] are opposites in some relevant way" ,
     "HasContext" : "[SUBJECT] is contextually related to [OBJECT] (general associations, domains, or connections expressed by 'of', 'with', 'to', 'about')",
     "SimilarTo" : "[SUBJECT] is similar to [OBJECT]. Symmetric" ,
-    "MadeOf" : "[SUBJECT] is made of [OBJECT]" ,
-    "ReceivesAction" : "[OBJECT] can be done to [SUBJECT]",
-    "PerformsAction" : "[SUBJECT] is doing the action [OBJECT], [OBJECT] is usually a verb"
+    "MadeOf" : "[SUBJECT] is fully substantively, chemically, or materially composed of [OBJECT]"
 }
