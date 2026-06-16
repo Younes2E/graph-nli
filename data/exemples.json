@@ -1,0 +1,62 @@
+[
+    {
+        "input": "John is eating a ham sandwich at McDonald's.",
+        "output":[["John", "PerformsAction", "eating"], ["sandwich", "ReceivesAction", "eating"], ["sandwich", "Contains", "ham"], ["eating", "AtLocation", "McDonald's"]]
+    },
+    {
+        "input": "A man is playing an instrument.",
+        "output": [["man", "PerformsAction", "playing"], ["instrument", "ReceivesAction", "playing"]]
+    },
+    {
+        "input": "Simon didn't call me back. He must be busy.",
+        "output": [["Simon", "PerformsAction", "not call"], ["me", "ReceivesAction", "not call"], ["Simon", "CanBe", "busy"]]
+    },
+    {
+        "input": "No politicians attended the meeting.",
+        "output": [["politicians", "PerformsAction", "not attended"], ["meeting", "ReceivesAction", "not attended"]]
+    },
+    {
+        "input": "He has the french nationality.",
+        "output": [["He", "HasA", "nationality"], ["nationality", "HasContext", "french"]]
+    },
+    {
+        "input": "The chef cooked dinner for the guests last night.",
+        "output": [["chef", "PerformsAction", "cooked"], ["dinner", "ReceivesAction", "cooked"], ["cooked", "HasContext", "guests"], ["cooked", "AtTime", "last night"]]
+    },
+    {
+        "input": "The game took place in New York during christmas.",
+        "output": [["game", "AtTime", "christmas"], ["game", "AtLocation", "New York"]]
+    },
+    {
+        "input": "While driving to work, he saw a deer.",
+        "output": [["He", "PerformsAction", "driving"], ["driving", "HasContext", "work"], ["driving", "HasSubevent", "saw"], ["He", "PerformsAction", "saw"], ["deer", "ReceivesAction", "saw"]]
+    },
+    {
+        "input": "His dog is allergic to chocolate.",
+        "output": [["His dog", "HasProperty", "allergic"], ["allergic", "HasContext", "chocolate"]]
+    },
+    {
+        "input": "He seems angry, he might leave the room.",
+        "output": [["He", "Possibly", "angry"], ["He", "Possibly", "leave the room"]]
+    },
+    {
+        "input": "The human body contains two kidneys.",
+        "output": [["human body", "Contains", "kidneys"], ["kidneys", "HasQuantity", "Two"]]
+    },
+    {
+        "input": "Three birds are sitting on the roof.",
+        "output": [["birds", "HasQuantity", "three"], ["birds", "PerformsAction", "sitting"], ["sitting", "AtLocation", "roof"]]
+    },
+    {
+        "input": "He studied all night in order to pass the exam.",
+        "output": [["he", "PerformsAction", "studied"], ["studied", "AtTime", "all night"], ["studied", "MotivatedByGoal", "pass"], ["exam", "ReceivesAction", "pass"]]
+    },
+    {
+        "input": "Smoking often leads to cancer.",
+        "output": [["Smoking", "Causes", "cancer"], ["cancer", "AtTime", "often"]]
+    },
+    {
+        "input": "He uses his phone as a microphone.",
+        "output": [["phone", "UsedFor", "microphone"], ["He", "PerformsAction", "uses"], ["phone", "ReceivesAction", "uses"]]
+    }
+]
