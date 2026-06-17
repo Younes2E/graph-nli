@@ -580,8 +580,9 @@ def demo_spacy_fr( ):
      global DEBUG
      parser =  document_spacyfier( lang = 'fr'  )
      #some_text = "Dans l' émission Salut les copains sur Europe 1 , printemps 1963 , suite à un vote massif d' auditeurs , Source de Mai 1963 de la station radio Europe 1 : Franck Alamo , Dick Rivers , Johnny Halliday , Sheila , Michel Page , etc .\n Né en 1451 ( date à confirmer ) , il est fils de Georges Ier de la Trémoille et de Catherine de l' Isle - Bouchard .\n"
-     #some_text =  "Il est tombé en prenant le métro.\nS'il avait été plus prudent nous n'aurions pas dû faire prendre une vraiment très bonne assurance à Paul."
-     some_text  = "S'il avait été plus prudent nous n'aurions pas dû faire prendre une vraiment très bonne assurance à Paul."
+     some_text =  "Il est tombé en prenant le métro.\nS'il avait été plus prudent nous n'aurions pas dû faire prendre une vraiment très bonne assurance à Paul."
+     #some_text  = "Le chien mange une pizza tandis que le chat boit de l'eau."
+     #some_text = "Le chien et le chat sont dans la cuisine. Le chien mange une pizza tandis que le chat boit de l'eau."
      #some_text = input('SVP Entrez un texte : ')
      #some_text = 'ambiance chalet'  # bug parsing spacy, chalet is seen as a verb
      #some_text = spacy_sentences[ 4 ]

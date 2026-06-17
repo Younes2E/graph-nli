@@ -6,7 +6,7 @@ import matplotlib
 import os
 
 
-def plot_knowledge_graph(triples, file, text):
+def plot_knowledge_graph(triples, text = None, file = None):
     if not triples:
         print("Graph vide")
         return
@@ -26,15 +26,17 @@ def plot_knowledge_graph(triples, file, text):
     nx.draw_networkx_labels(G, pos, font_size=10, font_weight="bold", font_family="sans-serif")
     nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=8, font_color="darkred")
 
-    plt.title(f"{text}", fontsize=14, fontweight="bold")
+    plt.title(f"{text}", fontsize=10, fontweight="bold")
     plt.axis("off")
     plt.tight_layout()
     
-    matplotlib.use('Agg') 
-    
-    plt.savefig(file, format="png", dpi=300)
-    plt.close() 
-    print(f"Graphe sauvegardé avec succès dans : {os.path.abspath(file)}")
+    if file :
+        matplotlib.use('Agg') 
+        plt.savefig(file, format="png", dpi=300)
+        plt.close() 
+        print(f"Graphe sauvegardé avec succès dans : {os.path.abspath(file)}")
+    else :
+        plt.show()  
 
 
 
@@ -66,9 +68,9 @@ phrases = [
 if __name__ == "__main__":
     for i, p in enumerate(phrases):
         g_p = extract_triples_propositions(p)
-        plot_knowledge_graph(g_p,  f"images/graphes_test/propositionned/graph_{i}.png", phrases[i])
+        plot_knowledge_graph(g_p, text = phrases[i], file = f"images/graphes_test/propositionned/graph_{i}.png")
         g_q = extract_triples(p)
-        plot_knowledge_graph(g_q,  f"images/graphes_test/direct/graph_{i}.png", phrases[i])
+        plot_knowledge_graph(g_q, text=phrases[i], file = f"images/graphes_test/direct/graph_{i}.png")
 
 
 
