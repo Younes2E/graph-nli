@@ -578,27 +578,13 @@ def output_anytree_dep( outfdesc = None, dptree = None, snt = None, doc = None )
 
 def demo_spacy_fr( ):
      global DEBUG
-     parser =  document_spacyfier( lang = 'fr'  )
-     #some_text = "Dans l' émission Salut les copains sur Europe 1 , printemps 1963 , suite à un vote massif d' auditeurs , Source de Mai 1963 de la station radio Europe 1 : Franck Alamo , Dick Rivers , Johnny Halliday , Sheila , Michel Page , etc .\n Né en 1451 ( date à confirmer ) , il est fils de Georges Ier de la Trémoille et de Catherine de l' Isle - Bouchard .\n"
-     some_text =  "Il est tombé en prenant le métro.\nS'il avait été plus prudent nous n'aurions pas dû faire prendre une vraiment très bonne assurance à Paul."
-     #some_text  = "Le chien mange une pizza tandis que le chat boit de l'eau."
-     #some_text = "Le chien et le chat sont dans la cuisine. Le chien mange une pizza tandis que le chat boit de l'eau."
-     #some_text = input('SVP Entrez un texte : ')
-     #some_text = 'ambiance chalet'  # bug parsing spacy, chalet is seen as a verb
-     #some_text = spacy_sentences[ 4 ]
-     #some_text =  "une vraiment très bonne assurance à Paul"
-     #some_text =  "L'Italie"
-     #some_text = spacy_sentences[12]
-     # with open( 'GTR-3-2.1_utf8_manual_extraction.txt', 'r') as in_f:
-     # with open( 'GTR-3-2.1_pdftotext.txt', 'r') as in_f:
-     #     some_text = in_f.read()
-     
+     parser =  document_spacyfier( lang = 'en'  )
+     some_text =  "He has been playing for several hours."
+
      indexed_parsed_text = parser.process_document( some_text  )
     
      curr_spacy_word_idx = 0
      
-     #doc = document( nm = 'demo_spacy_fr', content = some_text.replace('\n', ' '), metadata = 'pap 20251027' )
-     #doc = document( nm = 'GTR-3-2.1_pdftotext.txt', content = some_text, metadata = 'pap 20260422' )
      doc = document( nm = 'demo_spacy_fr', content = some_text, metadata = 'pap 20260608' )
 
      doc.constructions[ 'sentences' ] = {}
@@ -632,7 +618,7 @@ def demo_spacy_fr( ):
                               anytree_out.write( '{0}\n'.format( tree_str ))
                               if DEBUG:
                                    print( 'DEBUG >>> {0}'.format( node.mwus[ list( node.mwus.keys())[ 0 ] ]))
-# pap 20260422                    
+
                     res  =  x_breadth_level_recur( [ dpt ], doc = doc, level_node_lst_proc_fun = dep_tree_level_filter_NG,
                                                    ng_root_p  = spacy_dep_ng_node_root_p )
                     aux_frmt ='\nRESULT*****>> curr_sid == {0} res x_breadth_left_node == {1}\n'
@@ -645,14 +631,10 @@ def demo_spacy_fr( ):
                else:
                     pass
 
-# pap 20260422
                demo_spacy_noun_groups_out = './demo_spacy_noun_'+ name( snt ) +'_groups.csv'
-               with open( demo_spacy_noun_groups_out, 'w' ) as ngrps_out:
-                    spacy_filter_noun_groups(  doc, ngrps_out, exclude_determiner_p = False  )
+
           else:
                pass
-          # TODO HERE!!!!!!!!!!!!!!!!
-          # update curr_sapcy_word_idx
 
      demo_spacy_mwus_out = './demo_spacy_' + name( doc ) + '_mwus.csv'
      with open( demo_spacy_mwus_out, 'w' ) as mwus_out:

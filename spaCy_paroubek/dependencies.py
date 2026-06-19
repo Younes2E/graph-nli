@@ -281,7 +281,8 @@ def x_breadth_level_recur( a_node_lst = [], curr_node_lst = [], next_level_node_
     #if DEBUG:
     if nlevel == 0:
         print( 'TEST a_node_lst[ 0 ]== {0} ng_root_p( a_node_lst[ 0 ] )== {1}'.format( a_node_lst[ 0 ], ng_root_p( a_node_lst[ 0 ] )))
-        sorted_next_level_node_lst = sorted( [ x for x in a_node_lst ], key = lambda nd : (list( nd.mwus.values())[ 0 ]).txtspans[0][0] )
+        #sorted_next_level_node_lst = sorted( [ x for x in a_node_lst ], key = lambda nd : (list( nd.mwus.values())[ 0 ]).txtspans[0][0] )
+        sorted_next_level_node_lst = sorted( [ x for x in a_node_lst if x not in a_node_lst], key = lambda nd : (list( nd.mwus.values())[ 0 ]).txtspans[0][0] )
         if ng_root_p( a_node_lst[ 0 ] ):
             if len( sorted_next_level_node_lst ) > 0:
                 return x_down_level_recur( curr_node_lst = [ a_node_lst[ 0 ] ],
@@ -307,28 +308,28 @@ def x_breadth_level_recur( a_node_lst = [], curr_node_lst = [], next_level_node_
     else:     
         print( '\nDEBUG x_breadth_level_recur( \na_node_lst== ', a_node_lst, '\nnlevel = ', nlevel, '\nres= ', res )
         if len( a_node_lst ) > 0:
-            print( 'TEST a_node_lst[ 0 ]== {0} ng_root_p( a_node_lst[ 0 ] )== {1}'.format( a_node_lst[ 0 ], ng_root_p( a_node_lst[ 0 ] )))
-            return x_breadth_level_recur( a_node_lst[ 1: ],
-                                          curr_node_lst = curr_node_lst + [ a_node_lst[ 0 ] ],
-                                          next_level_node_lst = next_level_node_lst + [ nd for nd  in a_node_lst[ 0 ].children ], # tuple to list conversion
-                                          doc = doc,
-                                          nlevel = nlevel,
-                                          res = res,
-                                          level_node_lst_proc_fun = level_node_lst_proc_fun,
-                                          ng_root_p =  ng_root_p )
-        else:
-            # processing the current level node list
-            sorted_next_level_node_lst = sorted( [ x for x in next_level_node_lst ], key = lambda nd : (list( nd.mwus.values())[ 0 ]).txtspans[0][0] )
-            if len( sorted_next_level_node_lst ) > 0:
-                return x_down_level_recur( curr_node_lst = curr_node_lst,
-                                           sorted_next_level_node_lst = sorted_next_level_node_lst,
-                                           doc = doc,
-                                           nlevel = nlevel,
-                                           res = res,
-                                           level_node_lst_proc_fun = level_node_lst_proc_fun,
-                                           ng_root_p = ng_root_p )
+            if a_node_lst[ 0 ].children: 
+                print( 'TEST a_node_lst[ 0 ]== {0} ng_root_p( a_node_lst[ 0 ] )== {1}'.format( a_node_lst[ 0 ], ng_root_p( a_node_lst[ 0 ] )))
+                return x_breadth_level_recur( a_node_lst[ 1: ],
+                                              curr_node_lst = curr_node_lst + [ a_node_lst[ 0 ] ],
+                                              next_level_node_lst = next_level_node_lst + [ nd for nd  in a_node_lst[ 0 ].children ], # tuple to list conversion
+                                              doc = doc,
+                                              nlevel = nlevel,
+                                              res = res,
+                                              level_node_lst_proc_fun = level_node_lst_proc_fun,
+                                              ng_root_p =  ng_root_p )
             else:
-                return res + level_node_lst_proc_fun( curr_node_lst, nlevel, doc)
+                return x_breadth_level_recur( a_node_lst[ 1: ],
+                                              curr_node_lst = curr_node_lst + [ a_node_lst[ 0 ] ],
+                                              next_level_node_lst = next_level_node_lst, # tuple to list conversion
+                                              doc = doc,
+                                              nlevel = nlevel,
+                                              res = res,
+                                              level_node_lst_proc_fun = level_node_lst_proc_fun,
+                                              ng_root_p =  ng_root_p )
+               
+        else:
+            return []
 
 
  

@@ -1,0 +1,96 @@
+C’est l'une des intuitions les plus pointues en algorithmique de graphes. Ce que tu décris exactement, c'est le passage d'une recherche aveugle (Beam Search classique) à une **Recherche Heuristique avec anticipation**, c'est-à-dire le célèbre **algorithme A*** (A-star) adapté au Traitement du Langage Naturel (NLP).
+
+Dans l'algorithme A*, le score d'un nœud ne dépend pas seulement de sa proximité immédiate avec la cible, mais s'écrit mathématiquement :
+
+
+$$f(n) = g(n) + h(n)$$
+
+* $g(n)$ : Ce que tu as déjà calculé (le score sémantique actuel du nœud).
+* $h(n)$ : **La fonction heuristique (Le Pari).** Une estimation de la capacité de ce nœud à atteindre la cible avec les $N$ sauts restants.
+
+Puisque tu utilises ConceptNet et des embeddings (`all-MiniLM`), voici les trois mécanismes de l'état de l'art pour coder ce "pari" (la fonction $h(n)$) dans ton code Python, du plus simple au plus puissant.
+
+---
+
+### Stratégie 1 : Le Pari Structurel (Le Degré Sortant)
+
+C'est la méthode la plus rapide et la plus évidente. Dans un graphe de connaissances, un concept terminal (une feuille, comme `egg` ou `omelet`) mène à des culs-de-sac. Un concept parent (un hub, comme `animal`, `food`, `object`) possède des milliers de connexions.
+
+Si tu as 2 sauts restants, **tu dois parier sur les hubs**.
+
+* **Implémentation :** Lorsque tu extrais un voisin de ConceptNet, tu regardes son nombre total d'arêtes (son *out-degree*). Tu utilises le logarithme de ce nombre comme bonus.
+* **Le calcul :** `Score_Pari = log(nombre_de_voisins(animal))`
+* **Effet :** Même si "animal" a un score sémantique légèrement inférieur à "egg" face à "meat", son potentiel de branchement massif va le propulser dans ton Beam Search.
+
+### Stratégie 2 : Le Pari Taxonomique (Le Poids des Relations)
+
+Tu sais que pour faire un pont logique, tu dois "monter" en abstraction puis "redescendre" vers la cible.
+Si le chemin passe par `IsA`, tu élargis l'entonnoir logique. Si le chemin passe par `HasProperty`, tu le restreins.
+
+* **Implémentation :** Tu accordes un multiplicateur de "potentiel futur" basé sur la relation qui vient d'être empruntée.
+* **Le calcul :** * Si relation == `IsA` (Généralisation) $\rightarrow$ Bonus de Lookahead = $1.2$
+* Si relation == `PartOf` (Décomposition) $\rightarrow$ Bonus de Lookahead = $1.1$
+* Autres relations $\rightarrow$ Bonus = $0.9$
+
+
+
+### Stratégie 3 : L'Alignement Géométrique (Le Vecteur Différence)
+
+C'est l'approche neuronale pure. Tes mots sont des vecteurs dans l'espace de `MiniLM`. Au lieu de comparer bêtement la position de "egg" et "meat", tu peux évaluer si la direction dans laquelle tu pars pointe vers la cible.
+
+Mathématiquement, le vecteur idéal pour aller de $P$ à $H$ est le vecteur $\overrightarrow{PH} = \text{Embedding}(H) - \text{Embedding}(P)$.
+Si le nœud candidat $N_1$ pointe dans cette même direction, c'est un excellent pari.
+
+---
+
+### Comment l'intégrer dans ton code (L'Équation du Pari)
+
+Voici comment modifier la boucle de score de ton script précédent pour y injecter cette notion de "pari" heuristique. On va combiner le **score sémantique pur** avec le **pari structurel** (Stratégie 1 & 2).
+
+```python
+import math
+
+def calculate_heuristic_score(self, current_node, relation, neighbor_node, target_H, remaining_jumps):
+    # 1. Le g(n) : Score sémantique immédiat (Ce que tu as déjà)
+    sim_score = self.calculate_similarity(neighbor_node, target_H)
+    
+    # 2. Le h(n) : Le Pari (Heuristique)
+    bet_score = 1.0
+    
+    if remaining_jumps > 0:
+        # Pari A : Si le nœud est un concept abstrait/général, il a plus de chances de faire un pont
+        # (On simule ici l'extraction du degré du nœud dans ConceptNet)
+        node_degree = self.get_conceptnet_degree(neighbor_node) 
+        # On utilise log10 pour éviter que les hubs explosent le score (ex: log10(100) = 2.0)
+        hub_bonus = math.log10(max(node_degree, 1)) / 5.0 # Normalisation
+        
+        # Pari B : Bonus directionnel sur la taxonomie
+        relation_bonus = 0.2 if relation in ["IsA", "PartOf"] else 0.0
+        
+        # Le pari est fort si on a un Hub ET une relation d'abstraction
+        bet_score += (hub_bonus + relation_bonus)
+
+    # 3. Le Score Final (Sémantique * Pari)
+    # Plus il reste de sauts, plus le pari a du poids. S'il reste 0 saut, le bet_score est ignoré.
+    final_score = sim_score * (bet_score ** remaining_jumps)
+    
+    return final_score
+
+```
+
+### Le comportement du modèle avec cette mise à jour :
+
+Reprenons ton exemple avec `chicken` $\rightarrow$ `egg` vs `chicken` $\rightarrow$ `animal` avec 1 saut restant.
+
+1. **Candidat A (`egg`) :** `sim_score` (face à meat) = $0.70$. `egg` a peu de connexions (petit hub_bonus) et la relation n'est pas une abstraction. `bet_score` = $1.05$.
+* **Score Final :** $0.70 \times 1.05 = \mathbf{0.73}$
+
+
+2. **Candidat B (`animal`) :** `sim_score` = $0.65$. Mais `animal` a des dizaines de milliers de connexions (`hub_bonus` élevé) et la relation est `IsA`. `bet_score` = $1.40$.
+* **Score Final :** $0.65 \times 1.40 = \mathbf{0.91}$
+
+
+
+Grâce à ce calcul, le modèle **parie** sur "animal" et le conserve dans son Beam Search. À l'itération suivante, depuis "animal", il trouvera instantanément `animal -> IsA -> meat` et atteindra la cible.
+
+C'est exactement ainsi que l'on empêche un système d'exploration de tomber dans le piège de la "similarité locale".

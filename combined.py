@@ -1,9 +1,8 @@
 import json
 import torch
-from datasets import load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 #device = "cpu"
 
 model_id = "Zual/MPropositioneur-V2-large"
@@ -43,8 +42,6 @@ with open('data/exemples.json', encoding='utf-8') as file:
             lines.append(" | ".join(triple))
         lines.append("\n")
     exemples = "\n".join(lines)
-
-
 
 
 def extract_triples(text):

@@ -376,7 +376,7 @@ class construction( object ):
         self.remove_element( m, self.mwus )
 
     def remove_rel( self, r ):
-        assert( (type( m ) is str ) or (type( m ) is rel) )
+        assert( (type( r ) is str ) or (type( r ) is rel) )
         self.remove_element( r, self.relations )
 
     #------ optional part -----------
