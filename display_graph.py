@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from combined import extract_triples_propositions, extract_triples
+from graph import extract_triples_propositions, extract_triples
 import networkx as nx
 import matplotlib
 import os
