@@ -1,7 +1,6 @@
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import matplotlib.pyplot as plt
 import networkx as nx
-import numpy as np
 import torch
 import json
 import os
@@ -59,7 +58,7 @@ class GraphBuilder:
         Do NOT use any relation outside of this list.
 
         ADDITIONAL RULES: 
-        1. If an action is negated in the sentence (e.g., "didn't call", "is not eating"), you MUST capture the negation inside the [VERB] node using 'not' (e.g., 'not call', 'not eating').
+        1. If an action is negated in the sentence (e.g., "didn't call", "is not eating"), you MUST capture the negation inside the [VERB] node using 'not' (e.g., 'not_call', 'not_eating').
         2. When an action involves multiple elements at once (e.g., an actor, a target, a recipient, a tool, or a location), do NOT link the secondary elements to each other. Instead, make the action the central hub and ALL links must involve the action.
 
         EXEMPLES:
@@ -95,7 +94,7 @@ class GraphBuilder:
         for line in content.split("\n"):
             t = line.split(" | ")
             try :
-                triples.append((t[0].strip(), t[1].strip(), t[2].strip()))
+                triples.append((t[0].strip().lower().replace(' ', '_'), t[1].strip(), t[2].strip().lower().replace(' ', '_')))
             except : 
                 print(f"\nMauvais format de triplet : {t}.\n")
 
@@ -124,10 +123,11 @@ class KnowledgeGraph:
             self.entities.setdefault(t[2], False)
 
     def get_entities(self, sentence = None):
+        # sentence : si ce sont des nodes qui viennent du text original ou augmented
         if sentence is None:
-            return list(self.entities.keys())
+            return set(self.entities.keys())
         elif isinstance(sentence, bool):
-            return [ent for ent, v in self.entities.items() if v is sentence]
+            return set([ent for ent, v in self.entities.items() if v is sentence])
         else:
             raise ValueError("'sentence' must be True, False or None.")
     
