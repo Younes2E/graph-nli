@@ -1,26 +1,217 @@
 {
-    "PerformsAction" : "[SUBJECT] is doing the action [OBJECT], [OBJECT] is usually a verb",
-    "ReceivesAction" : "[OBJECT] can be done to [SUBJECT]",
-    "FormOf" : "[SUBJECT] is an inflected form of [OBJECT]" ,
-    "IsA" : "[SUBJECT] is a strict taxonomic subtype, class, or specific instance of [OBJECT]" ,
-    "HasModality" : "[SUBJECT] has its reality status, necessity, or possibility specified by the modal state [OBJECT] (e.g., Obligation, Possibility, Counterfactual, Certainty)",
-    "HasCondition" : "[SUBJECT] (an action or state) depends on, is restricted by, or is conceded by the clause [OBJECT] (e.g., logical conditions like 'if', or concessions like 'although')",
-    "PartOf": "[SUBJECT] is an intrinsic physical component, member, or structural part of [OBJECT]",
-    "HasA" : "[SUBJECT] physically possesses or owns [OBJECT]",
-    "Contains" : "[SUBJECT] physically encloses, holds inside, or traps [OBJECT] within its boundaries",
-    "HasQuantity" : "[SUBJECT] has a quantity of [OBJECT]",
-    "UsedFor" : "[SUBJECT] is used for [OBJECT]; the purpose of [SUBJECT] is [OBJECT]" ,
-    "CapableOf" : "Something that [SUBJECT] can typically do is [OBJECT]" ,
-    "AtLocation" : "[SUBJECT] is located at [OBJECT], [SUBJECT] can be an event taking place at [OBJECT]" ,
-    "AtTime" : "[SUBJECT] took place in, during, or relative to the temporal frame, date, or event [OBJECT]",
-    "Causes" : "[SUBJECT] and [OBJECT] are events, and [SUBJECT] causes [OBJECT]" ,
-    "HasSubevent" : "[SUBJECT] and [OBJECT] are events, and [OBJECT] happens as a subevent of [SUBJECT]" ,
-    "HasPrerequisite" : "In order for [SUBJECT] to happen, [OBJECT] needs to happen; [OBJECT] is a dependency of [SUBJECT]" ,
-    "HasProperty" : "[SUBJECT] has [OBJECT] as a property; [SUBJECT] can be described as [OBJECT]" ,
-    "MotivatedByGoal" : "Someone does [SUBJECT] because they want result [OBJECT]; [SUBJECT] is a step toward accomplishing the goal [OBJECT]" ,
-    "Synonym" : "[SUBJECT] and [OBJECT] have very similar meanings. Symmetric" ,
-    "Antonym" : "[SUBJECT] and [OBJECT] are opposites in some relevant way" ,
-    "HasContext" : "[SUBJECT] is contextually related to [OBJECT] (general associations, domains, or connections expressed by 'of', 'with', 'to', 'about')",
-    "SimilarTo" : "[SUBJECT] is similar to [OBJECT]. Symmetric" ,
-    "MadeOf" : "[SUBJECT] is fully substantively, chemically, or materially composed of [OBJECT]"
+    "concept" : 
+    [
+        "Antonym", 
+        "AtLocation", 
+        "CapableOf", 
+        "Causes", 
+        "CausesDesire",
+        "CreatedBy", 
+        "DefinedAs", 
+        "DerivedFrom", 
+        "Desires", 
+        "DistinctFrom",
+        "Entails", 
+        "FormOf", 
+        "HasA", 
+        "HasContext", 
+        "HasSubevent",
+        "HasPrerequisite", 
+        "HasProperty", 
+        "IsA", 
+        "MadeOf", 
+        "MannerOf",
+        "MotivatedByGoal", 
+        "PartOf", 
+        "ReceivesAction", 
+        "RelatedTo",
+        "SimilarTo", 
+        "Synonym", 
+        "UsedFor"
+    ]
+    ,
+
+    "ie" : 
+    [
+        "PerformsAction", 
+        "ReceivesAction",
+        "IsA",
+        "PartOf",
+        "HasA",
+        "Contains", 
+        "HasQuantity", 
+        "UsedFor", 
+        "CapableOf", 
+        "AtLocation",
+        "AtTime",
+        "Causes",
+        "HasSubevent",
+        "HasPrerequisite",
+        "HasProperty",
+        "MotivatedByGoal",
+        "Synonym",
+        "Antonym",
+        "SimilarTo",
+        "MadeOf"
+    ]
+    ,
+
+    "definitions" : 
+    [
+        {
+            "relation" : "PerformsAction",
+            "sentence" : "performs the action",
+            "description" : "[SUBJECT] is doing the action [OBJECT], [OBJECT] is usually a verb"
+        },
+        {
+            "relation" : "ReceivesAction",
+            "sentence" : "receives the action",
+            "description" : "[OBJECT] can be done to [SUBJECT]"
+        },
+        {
+            "relation" : "IsA",
+            "sentence" : "is a",
+            "description" : "[SUBJECT] is a strict taxonomic subtype, class, or specific instance of [OBJECT]"
+        },
+        {
+            "relation" : "PartOf",
+            "sentence" : "is a part of",
+            "description" : "[SUBJECT] is an intrinsic physical component, member, or structural part of [OBJECT]"
+        },
+        {
+            "relation" : "HasA",
+            "sentence" : "has a",
+            "description" : "[SUBJECT] physically possesses or owns [OBJECT]"
+        },
+        {
+            "relation" : "Contains",
+            "sentence" : "contains",
+            "description" : "[SUBJECT] physically encloses, holds inside, or traps [OBJECT] within its boundaries"
+        },
+        {
+            "relation" : "HasQuantity",
+            "sentence" : "has a quantity of",
+            "description" : "[SUBJECT] has a quantity of [OBJECT]"
+        },
+        {
+            "relation" : "UsedFor",
+            "sentence" : "is used for",
+            "description" : "[SUBJECT] is used for [OBJECT]; the purpose of [SUBJECT] is [OBJECT]"
+        },
+        {
+            "relation" : "CapableOf",
+            "sentence" : "is capable of",
+            "description" : "Something that [SUBJECT] can typically do is [OBJECT]"
+        },
+        {
+            "relation" : "AtLocation",
+            "sentence" : "is located at",
+            "description" : "[SUBJECT] is located at [OBJECT], [SUBJECT] can be an event taking place at [OBJECT]"
+        },
+        {
+            "relation" : "AtTime",
+            "sentence" : "took place during",
+            "description" : "[SUBJECT] took place in, during, or relative to the temporal frame, date, or event [OBJECT]"
+        },
+        {
+            "relation" : "Causes",
+            "sentence" : "causes",
+            "description" : "[SUBJECT] and [OBJECT] are events, and [SUBJECT] causes [OBJECT]"
+        },
+        {
+            "relation" : "HasSubevent",
+            "sentence" : "has a subevent",
+            "description" : "[SUBJECT] and [OBJECT] are events, and [OBJECT] happens as a subevent of [SUBJECT]"
+        },
+        {
+            "relation" : "HasPrerequisite",
+            "sentence" : "has as a prerequisite",
+            "description" : "In order for [SUBJECT] to happen, [OBJECT] needs to happen; [OBJECT] is a dependency of [SUBJECT]"
+        },
+        {
+            "relation" : "HasProperty",
+            "sentence" : "has the property",
+            "description" : "[SUBJECT] has [OBJECT] as a property; [SUBJECT] can be described as [OBJECT]"
+        },
+        {
+            "relation" : "MotivatedByGoal",
+            "sentence" : "is motivated by the goal",
+            "description" : "Someone does [SUBJECT] because they want result [OBJECT]; [SUBJECT] is a step toward accomplishing the goal [OBJECT]"
+        },
+        {
+            "relation" : "Synonym",
+            "sentence" : "is a synonym of",
+            "description" : "[SUBJECT] and [OBJECT] have very similar meanings. Symmetric"
+        },
+        {
+            "relation" : "Antonym",
+            "sentence" : "is an antonym of",
+            "description" : "[SUBJECT] and [OBJECT] are opposites in some relevant way"
+        },
+        {
+            "relation" : "SimilarTo",
+            "sentence" : "is similar to",
+            "description" : "[SUBJECT] is similar to [OBJECT]. Symmetric"
+        },
+        {
+            "relation" : "MadeOf",
+            "sentence" : "is made of",
+            "description" : "[SUBJECT] is fully substantively, chemically, or materially composed of [OBJECT]"
+        },
+        {
+            "relation" : "CausesDesire",
+            "sentence" : "causes the desire",
+            "description" : ""
+        },
+        {
+            "relation" : "CreatedBy",
+            "sentence" : "is created by",
+            "description" : ""
+        },
+        {
+            "relation" : "DefinedAs",
+            "sentence" : "can be defined as",
+            "description" : ""
+        },
+        {
+            "relation" : "DerivedFrom",
+            "sentence" : "is derived from",
+            "description" : ""
+        },
+        {
+            "relation" : "Desires",
+            "sentence" : "desires",
+            "description" : ""
+        },
+        {
+            "relation" : "DistinctFrom",
+            "sentence" : "is distinct from",
+            "description" : ""
+        },
+        {
+            "relation" : "Entails",
+            "sentence" : "entails",
+            "description" : ""
+        },
+        {
+            "relation" : "FormOf",
+            "sentence" : "is a form of",
+            "description" : ""
+        },
+        {
+            "relation" : "HasContext",
+            "sentence" : "is used in the context of",
+            "description" : ""
+        },
+        {
+            "relation" : "MannerOf",
+            "sentence" : "is a specific way to do",
+            "description" : ""
+        },
+        {
+            "relation" : "RelatedTo",
+            "sentence" : "is related to",
+            "description" : ""
+        }
+    ]
 }

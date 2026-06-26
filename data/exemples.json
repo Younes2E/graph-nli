@@ -9,11 +9,11 @@
     },
     {
         "input": "Simon didn't call me back. He must be busy.",
-        "output": [["Simon", "PerformsAction", "not_call"], ["me", "ReceivesAction", "not_call"], ["Simon", "CanBe", "busy"]]
+        "output": [["Simon", "PerformsAction", "not call"], ["me", "ReceivesAction", "not call"], ["Simon", "CanBe", "busy"]]
     },
     {
         "input": "No politicians attended the meeting.",
-        "output": [["politicians", "PerformsAction", "not_attended"], ["meeting", "ReceivesAction", "not_attended"]]
+        "output": [["politicians", "PerformsAction", "not attended"], ["meeting", "ReceivesAction", "not attended"]]
     },
     {
         "input": "He has the french nationality.",

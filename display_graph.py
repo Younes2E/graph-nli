@@ -1,41 +1,9 @@
 import matplotlib.pyplot as plt
-from graph import extract_triples_propositions, extract_triples
+from utils.graph import extract_triples_propositions, extract_triples
 import networkx as nx
 import matplotlib
 import os
-
-
-def plot_knowledge_graph(triples, text = None, file = None):
-    if not triples:
-        print("Graph vide")
-        return
-
-    G = nx.DiGraph()
-    edge_labels = {}
-    
-    for subj, rel, obj in triples:
-        G.add_edge(subj, obj)
-        edge_labels[(subj, obj)] = rel
-
-    plt.figure(figsize=(9, 6))
-    pos = nx.spring_layout(G, k=1.5, seed=42) 
-
-    nx.draw_networkx_nodes(G, pos, node_size=2500, node_color="skyblue", alpha=0.9)
-    nx.draw_networkx_edges(G, pos, arrowstyle="->", arrowsize=20, edge_color="gray", min_source_margin=30, min_target_margin=30,width=1.5)
-    nx.draw_networkx_labels(G, pos, font_size=10, font_weight="bold", font_family="sans-serif")
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=8, font_color="darkred")
-
-    plt.title(f"{text}", fontsize=10, fontweight="bold")
-    plt.axis("off")
-    plt.tight_layout()
-    
-    if file :
-        matplotlib.use('Agg') 
-        plt.savefig(file, format="png", dpi=300)
-        plt.close() 
-        print(f"Graphe sauvegardé avec succès dans : {os.path.abspath(file)}")
-    else :
-        plt.show()  
+ 
 
 
 

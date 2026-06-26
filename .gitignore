@@ -1,5 +1,6 @@
 env
 __pycache__
 .vscode
-.txt
-spacy_tree
+*.txt
+spacy_*
+*.md
