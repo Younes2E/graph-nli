@@ -1,67 +1,43 @@
 from transformers import AutoTokenizer
 import matplotlib.pyplot as plt
 import networkx as nx
+import spacy
 import json
+import re
 import os
 
 # On décode en greedy (temperature=0) : le sampler FlashInfer de vLLM est inutile, et
 # sa compilation JIT échoue dans cet environnement. Doit être positionné AVANT vllm.
 os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
+# Worker vLLM en 'spawn' : évite "Cannot re-initialize CUDA in forked subprocess" quand
+# CUDA est touché dans le parent avant le LLM (ex. import spacy/thinc). AVANT vllm.
+os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
 
-_HERE = os.path.dirname(os.path.abspath(__file__))
-_DATA_DIR = os.path.join(_HERE, os.pardir, "data")
+_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "data")
 
 PROP_MODEL_NAME = "Zual/MPropositioneur-V2-large"
 TRIPLES_MODEL_NAME = "Qwen/Qwen2.5-7B-Instruct"
 
 
 class GraphBuilder:
-    """Construit des KnowledgeGraph à partir de texte via deux LLM servis par vLLM :
-    le Propositioneur (texte -> propositions atomiques) puis Qwen (proposition ->
-    triplets closedIE). Les deux modèles sont chargés au démarrage.
-
-    Méthodes principales : `build`/`build_batch` (texte -> KnowledgeGraph),
-    et les briques `extract_atomic_prop`/`extract_triples` (versions batch en _batch).
-    """
-
-    def __init__(self, gpu_mem_total=None, max_model_len=8192,
+    def __init__(self, gpu_mem_total=None, max_model_len=4096,
                  enforce_eager=True, kv_cache_gb=2.0, **llm_kwargs):
-        # Deux régimes selon gpu_mem_total :
-        # - None (défaut, mode LÉGER) : chaque modèle ne réserve que ses poids + ~kv_cache_gb
-        #   de KV cache. On calcule gpu_memory_utilization juste pour ce besoin (poids estimés
-        #   + cache) / mémoire totale du GPU. Démarre même si le GPU est partiellement occupé.
-        # - float (mode BATCH, GPU vide) : fraction TOTALE du GPU pour les DEUX modèles,
-        #   répartie en deux ; gros KV cache -> débit max. Ex: gpu_mem_total=0.9.
-        # enforce_eager=True : la compilation JIT de vLLM échoue dans cet environnement.
-        from vllm import LLM
+        self._gpu_mem_total = gpu_mem_total
+        self._kv_cache_gb = kv_cache_gb
+        self._llm_common = dict(dtype="float16", max_model_len=max_model_len,
+                                enforce_eager=enforce_eager, **llm_kwargs)
+        self._loaded = None
+        self.tokenizer = None
+        self.llm = None
 
-        common = dict(dtype="float16", max_model_len=max_model_len,
-                      enforce_eager=enforce_eager, **llm_kwargs)
-
-        def util_for(weights_gb):
-            # gpu_memory_utilization est un ratio sur la mémoire TOTALE du GPU ; vLLM exige
-            # aussi que le free memory au démarrage le couvre. En mode léger on demande juste
-            # poids + cache. En mode batch on répartit gpu_mem_total en deux.
-            if gpu_mem_total is not None:
-                return gpu_mem_total / 2
-            import torch
-            total_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3
-            return min(0.95, (weights_gb + kv_cache_gb) / total_gb)
-
-        # Poids estimés en VRAM : Propositioneur ~8 GB (bf16, ~4B), Qwen2.5-7B ~14.3 GB.
-        self.prop_tokenizer = AutoTokenizer.from_pretrained(PROP_MODEL_NAME)
-        self.prop_llm = LLM(model=PROP_MODEL_NAME,
-                            gpu_memory_utilization=util_for(8.5), **common)
-
-        self.qwen_tokenizer = AutoTokenizer.from_pretrained(TRIPLES_MODEL_NAME)
-        self.qwen_llm = LLM(model=TRIPLES_MODEL_NAME,
-                            gpu_memory_utilization=util_for(15.0), **common)
+        self.nlp = spacy.load("en_core_web_sm")
 
         with open(os.path.join(_DATA_DIR, "relations.json"), encoding="utf-8") as file:
             relations_raw = json.load(file)
+            self.ie = set(relations_raw["ie"])
             self.relations = [
                 {k: v for k, v in item.items() if k in {"relation", "description"}}
-                for item in relations_raw["definitions"] if item["relation"] in relations_raw["ie"]
+                for item in relations_raw["definitions"] if item["relation"] in self.ie
             ]
 
         with open(os.path.join(_DATA_DIR, "exemples.json"), encoding="utf-8") as file:
@@ -75,30 +51,81 @@ class GraphBuilder:
                 lines.append("\n")
             self.exemples = "\n".join(lines)
 
+    def _util_for(self, weights_gb):
+        if self._gpu_mem_total is not None:
+            return self._gpu_mem_total
+        import torch
+        total_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3
+        return min(0.95, (weights_gb + self._kv_cache_gb) / total_gb)
+
+    def load(self, model):
+        """Charge "prop" ou "qwen" en VRAM (décharge l'autre si besoin)."""
+        if self._loaded == model:
+            return
+        self.unload()
+        from vllm import LLM
+        name, weights = (PROP_MODEL_NAME, 8.5) if model == "prop" else (TRIPLES_MODEL_NAME, 15.0)
+        self.tokenizer = AutoTokenizer.from_pretrained(name)
+        self.llm = LLM(model=name, gpu_memory_utilization=self._util_for(weights),
+                       **self._llm_common)
+        self._loaded = model
+
+    def unload(self):
+        """Libère la VRAM du modèle chargé."""
+        if self.llm is None:
+            return
+        del self.llm
+        self.llm = self.tokenizer = None
+        self._loaded = None
+        import gc, torch
+        gc.collect()
+        torch.cuda.empty_cache()
+
+    # ------------------------------------------------------------------ #
+    # Génération (le bon modèle doit être chargé)
+    # ------------------------------------------------------------------ #
     def extract_atomic_prop_batch(self, texts):
         from vllm import SamplingParams
         prompts = [
-            self.prop_tokenizer.apply_chat_template(
+            self.tokenizer.apply_chat_template(
                 [{"role": "user", "content": f"Atomize: {t}"}],
                 tokenize=False, add_generation_prompt=True)
             for t in texts
         ]
-        outputs = self.prop_llm.generate(prompts, SamplingParams(temperature=0.0, max_tokens=2048))
+        outputs = self.llm.generate(prompts, SamplingParams(temperature=0.0, max_tokens=2048))
+        return [set(self._parse_props(o.outputs[0].text)) for o in outputs]
 
-        results = []
-        for o in outputs:
-            try:
-                results.append(set(json.loads(o.outputs[0].text.strip())))
-            except Exception:
-                print(f"\nSortie Propositioneur non-parsable : {o.outputs[0].text!r}\n")
-                results.append(set())
-        return results
+    @staticmethod
+    def _parse_props(text):
+        """Parse la sortie du Propositioneur en liste de propositions.
+
+        Tolérant aux sorties tronquées / qui bouclent (le modèle répète une phrase
+        sans fermer le JSON) : on garde les chaînes JSON COMPLÈTES (bien fermées) et
+        on déduplique. Une sortie correcte est parsée normalement.
+        """
+        text = text.strip()
+        try:
+            return list(dict.fromkeys(json.loads(text)))  # cas normal, dédup ordonnée
+        except Exception:
+            pass
+        # JSON cassé : extraire les chaînes "..." complètes, ignorer la dernière tronquée.
+        out, seen = [], set()
+        for s in re.findall(r'"((?:[^"\\]|\\.)*)"', text):
+            if "\\" in s:
+                try:
+                    s = json.loads(f'"{s}"')  # déséchapper proprement (\\', \\n, ...)
+                except Exception:
+                    pass
+            if s and s not in seen:
+                seen.add(s)
+                out.append(s)
+        return out
 
     def extract_triples_batch(self, props):
         """list[str] -> list[list[tuple]] : triplets (s, rel, o) par proposition."""
         from vllm import SamplingParams
         prompts = [self._triples_prompt(p) for p in props]
-        outputs = self.qwen_llm.generate(prompts, SamplingParams(temperature=0.0, max_tokens=512))
+        outputs = self.llm.generate(prompts, SamplingParams(temperature=0.0, max_tokens=512))
         return [self._parse_triples(o.outputs[0].text) for o in outputs]
 
     def _triples_prompt(self, text):
@@ -114,54 +141,120 @@ class GraphBuilder:
         Do NOT use any relation outside of this list.
 
         ADDITIONAL RULES:
-        1. If an action is negated in the sentence (e.g., "didn't call", "is not eating"), you MUST capture the negation inside the [VERB] node using 'not' (e.g., 'not_call', 'not_eating').
+        1. If an action is negated in the sentence (e.g., "didn't call", "is not eating"), you MUST capture the negation inside the [VERB] node using 'not' (e.g., 'not call', 'not eating').
         2. When an action involves multiple elements at once (e.g., an actor, a target, a recipient, a tool, or a location), do NOT link the secondary elements to each other. Instead, make the action the central hub and ALL links must involve the action.
-
-        EXEMPLES:
+        3. NODES MUST BE ATOMIC. Each node is a single, indivisible concept (normally one word). 
+            Never keep a concept together with its modifiers as one node: 
+            split off every modifier/descriptor, owner, quantity, material, qualifying noun, etc as its own triple, with the core concept as the node and the most appropriate relation from the list above. 
+            Examples:
+                "old man"      -> [man, HasProperty, old]
+                "wooden table" -> [table, MadeOf, wood]
+                "two kidneys"  -> [kidneys, HasQuantity, two]
+                "ham sandwich" -> [sandwich, Contains, ham]
+            EXCEPTION: proper nouns and fixed/lexicalized compounds stay as ONE node — never
+            split them: "New York", "ice cream", "United States", "Eiffel Tower", "hot dog", "Micheal Jackson".
+            
+        EXTRACTION EXEMPLES:
         {self.exemples}
 
 
         Sentence: {text}"""
+
         messages = [
             {"role": "system", "content": "You are a deterministic Information Extraction expert."},
             {"role": "user", "content": prompt},
         ]
-        return self.qwen_tokenizer.apply_chat_template(
+
+        return self.tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True)
 
-    @staticmethod
-    def _parse_triples(content):
+    def _lemmatize_entity(self, text):
+        doc = self.nlp(text)
+        keep = [
+            t for t in doc
+            if t.pos_ not in {"DET", "ADP", "CCONJ", "SCONJ", "PUNCT", "PART", "AUX"}
+            or t.lemma_.lower() in {"not", "no", "never"}
+        ]
+        if not keep:
+            keep = list(doc)
+        lemmas = [t.lemma_.lower() for t in keep]
+        return "_".join(lemmas)
+
+    def _parse_triples(self, content):
+        """Parse robuste de la sortie Qwen en list[tuple(s, rel, o)].
+
+        - split sur '|' tolérant aux espaces ;
+        - ignore les lignes de préambule/markdown (pas exactement 3 champs) ;
+        - retire d'éventuels crochets [..] ;
+        - VALIDE la relation : on jette les triplets dont la relation n'est pas dans `ie`.
+        """
         triples = []
         for line in content.split("\n"):
-            t = line.split(" | ")
-            try:
-                triples.append((t[0].strip().lower().replace(" ", "_"),
-                                t[1].strip(),
-                                t[2].strip().lower().replace(" ", "_")))
-            except Exception:
-                if line.strip():
-                    print(f"\nMauvais format de triplet : {t}.\n")
+            line = line.strip().strip("`").strip()
+            if "|" not in line:
+                continue
+            parts = [c.strip().strip("[]").strip() for c in line.split("|")]
+            if len(parts) != 3 or not all(parts):
+                continue
+            subj, rel, obj = parts
+            if rel not in self.ie:
+                continue
+            triples.append((self._lemmatize_entity(subj),
+                            rel,
+                            self._lemmatize_entity(obj)))
         return triples
 
-    def build_batch(self, texts):
-        props_per_text = self.extract_atomic_prop_batch(texts)
+    def build_batch(self, texts, batch_size=512, show_progress=True):
+        """list[str] -> list[KnowledgeGraph].
 
+        Orchestration complète en deux passes, un seul modèle en VRAM à la fois :
+          1. charge le Propositioneur, atomise TOUT (par chunks de batch_size) ;
+          2. décharge, charge Qwen, extrait les triplets de TOUTES les propositions ;
+          3. décharge, regroupe par texte d'origine.
+        tqdm affiche l'avancement de chaque passe.
+        """
+        from tqdm import tqdm
+        texts = list(texts)
+
+        def chunks(seq):
+            for i in range(0, len(seq), batch_size):
+                yield seq[i:i + batch_size]
+
+        # --- Passe 1 : propositions ---
+        self.load("prop")
+        props_per_text = []
+        it = chunks(texts)
+        if show_progress:
+            it = tqdm(it, total=(len(texts) + batch_size - 1) // batch_size, desc="prop")
+        for batch in it:
+            props_per_text.extend(self.extract_atomic_prop_batch(batch))
+
+        # Mise à plat des propositions (en gardant l'indice du texte d'origine).
         flat_props, owners = [], []
         for i, props in enumerate(props_per_text):
             for p in props:
                 flat_props.append(p)
                 owners.append(i)
 
-        triples_per_prop = self.extract_triples_batch(flat_props)
+        # --- Passe 2 : triplets ---
+        self.load("qwen")
+        triples_per_prop = []
+        it = chunks(flat_props)
+        if show_progress:
+            it = tqdm(it, total=(len(flat_props) + batch_size - 1) // batch_size, desc="triples")
+        for batch in it:
+            triples_per_prop.extend(self.extract_triples_batch(batch))
+        self.unload()
 
+        # Regroupement par texte.
         per_text = [set() for _ in texts]
         for owner, triples in zip(owners, triples_per_prop):
             per_text[owner].update(triples)
         return [KnowledgeGraph(t, tr) for t, tr in zip(texts, per_text)]
 
     def build(self, text):
-        """str -> KnowledgeGraph."""
-        return self.build_batch([text])[0]
+        """str -> KnowledgeGraph (debug ; charge/décharge les deux modèles)."""
+        return self.build_batch([text], show_progress=False)[0]
 
 
 class KnowledgeGraph:

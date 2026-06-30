@@ -3,57 +3,60 @@ from utils.graph import KnowledgeGraph
 import pandas as pd
 import numpy as np
 import json
-import re
+import os
 
-# TODO : Faire une seul classe (choisir le type d'encoder), pour fusionner la recherche, et implementer le calcul de similarité a chaque saut. + Garder les méthodes naïves
 
-MODEL_NAME = 'sentence-transformers/all-MiniLM-L6-v2'
+CROSS_NAME = 'cross-encoder/stsb-roberta-base'
 
 class ConceptGraph():
-    def __init__(self, lang, device = "cpu"):
-        #self.model = SentenceTransformer(MODEL_NAME, device=device)
-        self.model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2", device = device)
+    def __init__(self, lang = 'en', device = "cuda"):
+        self.device = device
+        self.cross = CrossEncoder(CROSS_NAME, device=self.device)
         self.data = pd.read_csv(f'data/concept_net_{lang}.csv')
+
+        self.data = self.data[['head_word', 'relation', 'tail_word', 'weight']]
+
+        self.fwd = {w: g for w, g in self.data.groupby('head_word', sort=False)}
+        self.bwd = {w: g for w, g in self.data.groupby('tail_word', sort=False)}
+        self.empty = self.data.iloc[0:0]
+
         with open('data/relations.json', encoding='utf-8') as file:
             relations_raw = json.load(file)
             self.sentence_to_relation  = {item["sentence"] : item["relation"] for item in relations_raw["definitions"]}
             self.relation_to_sentence  = {item["relation"] : item["sentence"] for item in relations_raw["definitions"]}
 
-
     def get_rel_nodes(self, nodes, rel=None, sorted=True, forward = True):
-        mots_echappes = [re.escape(mot) for mot in nodes]
-        pattern = rf"^(?:{'|'.join(mots_echappes)})(?:/|$)"
-        
-        mask = self.data['head' if forward else 'tail'].str.match(pattern, na=False)
-        
-        if rel is not None:
-            mask = mask & self.data['relation'].isin(rel)
-            
-        result = self.data.loc[mask]
-        
-        return result.sort_values(by="weight", ascending=False) if sorted else result
-    
-    def get_nodes_rel(self, rel, nodes = None, sorted = True, forward = True):
-        mask = self.data['relation'].isin(rel)
-        if nodes is not None:
-            mots_echappes = [re.escape(mot) for mot in nodes]
-            pattern = rf"^(?:{'|'.join(mots_echappes)})(?:/|$)"
-            mask = mask & self.data['head' if forward else 'tail'].str.match(pattern, na=False)
+        index = self.fwd if forward else self.bwd
+        parts = [index[n] for n in set(nodes) if n in index]
+        result = pd.concat(parts) if parts else self.empty
 
-        result = self.data.loc[mask]
+        if rel is not None:
+            result = result[result['relation'].isin(rel)]
+
+        return result.sort_values(by="weight", ascending=False) if sorted else result
+
+    def get_nodes_rel(self, rel, nodes = None, sorted = True, forward = True):
+        if nodes is None:
+            result = self.data[self.data['relation'].isin(rel)]
+        else:
+            index = self.fwd if forward else self.bwd
+            parts = [index[n] for n in set(nodes) if n in index]
+            result = pd.concat(parts) if parts else self.empty
+            result = result[result['relation'].isin(rel)]
+
         return result.sort_values(by="weight", ascending=False) if sorted else result
 
     def get_rel_naive(self, graph : KnowledgeGraph, dist=1, rel : list = None, entities = None, forward=True):
         current_entities = graph.get_entities()
         dfs = []
-        next_col = 'tail' if forward else 'head'
-        
+        next_col = 'tail_word' if forward else 'head_word'
+
         for _ in range(dist):
             if len(current_entities) == 0:
                 break
 
             hop = self.get_rel_nodes(current_entities, rel = rel,sorted=False, forward = forward)
-            current_entities = hop[next_col].str.split('/').str[0].unique()
+            current_entities = hop[next_col].unique()
 
             dfs.append(hop)
 
@@ -61,41 +64,38 @@ class ConceptGraph():
             return np.empty((0, 4))
 
         final_df = pd.concat(dfs, ignore_index=True).drop_duplicates()
-        
-        return final_df.sort_values(by='weight', ascending=False)[['head', 'relation', 'tail', 'weight']].to_numpy()
-    
+
+        return final_df.sort_values(by='weight', ascending=False)[['head_word', 'relation', 'tail_word', 'weight']].to_numpy()
+
     def get_rel_difference(self, source : KnowledgeGraph, target : KnowledgeGraph, dist=1, rel : list = None, forward = True):
         source_entities = source.get_entities()
         target_entities = target.get_entities() - source_entities
-        next_col = 'tail' if forward else 'head'
-        prev_col = 'head' if forward else 'tail'
+        next_col = 'tail_word' if forward else 'head_word'
+        prev_col = 'head_word' if forward else 'tail_word'
         dfs = []
 
         for _ in range(dist):
             if len(source_entities) == 0 or len(target_entities) == 0:
                 break
-            hop = self.get_rel_nodes(source_entities, rel = rel,sorted=False, forward = forward).copy()
+            hop = self.get_rel_nodes(source_entities, rel = rel,sorted=False, forward = forward)
             if hop.empty:
                 break
 
-            hop['head'] = hop['head'].str.split('/').str[0]
-            hop['tail'] = hop['tail'].str.split('/').str[0]
-
-            source_entities = set(hop[next_col].str.split('/').str[0].unique())
-            dfs.append(hop) 
+            source_entities = set(hop[next_col].unique())
+            dfs.append(hop)
 
         if not dfs:
             return np.empty((0, 4))
-        
+
         active_targets = target_entities
         final_dfs = []
 
         for current_df in reversed(dfs):
             if len(active_targets) == 0:
                 break
-            
+
             mask = current_df[next_col].isin(active_targets)
-            hop = current_df[mask].copy()
+            hop = current_df[mask]
 
             if not hop.empty:
                 final_dfs.append(hop)
@@ -103,58 +103,118 @@ class ConceptGraph():
 
         if not final_dfs:
             return np.empty((0, 4))
-        
 
-        final_df = pd.concat(final_dfs, ignore_index=True).drop_duplicates()  
-        return final_df.sort_values(by='weight', ascending=False)[['head', 'relation', 'tail', 'weight']].to_numpy()
+        final_df = pd.concat(final_dfs, ignore_index=True).drop_duplicates()
+        return final_df.sort_values(by='weight', ascending=False)[['head_word', 'relation', 'tail_word', 'weight']].to_numpy()
 
+    @staticmethod
     def _score_path(scores, alpha = 0.5):
         return alpha*np.mean(scores)+(1-alpha)*np.max(scores)
     
+    def _reconstruct_paths(self, hop, threshold):
+        edge_cols = ['id_path', 'head', 'rel', 'tail', 'score_link', 'info_scored']
+        path_cols = ['id_path', 'score_path']
+        if not hop or hop[0].empty:
+            return pd.DataFrame(columns=edge_cols), pd.DataFrame(columns=path_cols)
 
-    """
-    def _reconstruct_path(dfs):
+        def edges_of(df): 
+            return list(df[['head_word', 'relation', 'tail_word', 'score', 'info_scored']]
+                        .itertuples(index=False, name=None))
 
-    def _snap_entity(self, entity, ):
-    """
+        frontier = [([e], e[2], {e[0], e[2]}) for e in edges_of(hop[0])]
+        completed = []
 
+        for k in range(1, len(hop)):
+            by_head = {}
+            for e in edges_of(hop[k]):
+                by_head.setdefault(e[0], []).append(e)
 
-    
+            new_frontier = []
+            for path, node, visited in frontier:
+                if path[-1][3] == 1.0:                 
+                    completed.append(path); continue
+                exts = [e for e in by_head.get(node, []) if e[2] not in visited]  
+                if not exts:
+                    completed.append(path)             
+                else:
+                    for e in exts:
+                        new_frontier.append((path + [e], e[2], visited | {e[2]}))
+            frontier = new_frontier
+        completed.extend(p for p, _, _ in frontier) 
+
+        scored = [(self._score_path([e[3] for e in path]), path) for path in completed]
+        scored = [sp for sp in scored if sp[0] >= threshold]
+        scored.sort(key=lambda x: x[0], reverse=True)
+
+        edge_rows, path_rows = [], []
+        for pid, (ps, path) in enumerate(scored):
+            path_rows.append((pid, ps))
+            for (h, r, t, sc, info) in path:
+                edge_rows.append((pid, h, r, t, sc, info))
+
+        return (pd.DataFrame(edge_rows, columns=edge_cols),
+                pd.DataFrame(path_rows, columns=path_cols))
+
     def _triples_to_sentences(self, triples):
-        sentences = []
-        for t in triples:
-            sentences.append(f"{t[0]} {self.relation_to_sentence[t[1]]} {t[2]}")
-        return sentences
-    
-    def similarity_score(self, link, sentences):
-        x = [(link, s) for s in sentences]
-        scores = self.model.predict(x)
-        data_score = np.column_stack((sentences, scores))
-        index_sorted = np.argsort(data_score[:, 1].astype(float))[::-1]
-        return data_score[index_sorted]
+        return [f"{h} {self.relation_to_sentence[r]} {t}" for (h, r, t, *_) in triples]
 
-    def get_rel_similarity(self, source : KnowledgeGraph, target : KnowledgeGraph, dist=1, rel : list = None, forward = True, threshold = None):
-        ## TODO : Faire le score par rapport a H - P, pour encoder la difference !!!!!!!!!!!!!!!!!!
-        """ TODO : description bridge dans relations.json (eg. "is a form of"), puis concat e1+phrase+e2 puis calculer le score
-        Au lieu de comparer avec la phrase complete on va comparer avec les triplets (mis sous forme de phrase) non present dans source. Pour ne pas comparer des informations identiques
-        Pour la fonction get_rel finale : A chaque iter (range(d)) forward puis snap
-        A la fin : reconstruct path, puis score chaque path (avec cette fonction) et renvoyer path et score
+    def _max_scores(self, links, sentences):
+        links = list(links); sentences = list(sentences)
+        if not links or not sentences:
+            return np.zeros(len(links))
+        pairs = [(l, s) for l in links for s in sentences]
+        sc = np.asarray(self.cross.predict(pairs), dtype=float).reshape(len(links), len(sentences))
+        return sc.max(axis=1)
 
-        Piste à tester : comparer a chacun des triplets (sous forme de phrase) de H et prendre le highest score (faire ça à toutes les itérations jusqu'a ce qu'un reel ecart se creuse, et dans ce cas là pour chaque extension, on va la comparer a ce meme triplet argmax)
-        Il faut partager le travail et pas que tous les chemins focus la meme  information de target. Il faut peut etre partir de chaque info de target et faire un forward=False, renvoyer le score avec l'info qu'il cherche (l'argmax du score)
-        """
+    def get_relevant_data(self, source, target, threshold_link = 0.3, threshold_path= 0.5, forward = True, dist = 1):
+        # Garder le seuil pour les chemins, mais faire un top_k (proportionnel à unresolved) pour garder les liens ?
+        ## TODO ?? : Avoir un poid different en fonction de la rel ? par exemple 'IsA' est presque obligatoire et systematique, 
+        # IsA permet de faire un premier pont, ensuite on prune les chemins 'IsA' qui n'ont rien de pertinent (score) qui partent d'eux
 
-        source_entities = source.get_entities()
-        ## Entités de depart (peut etre prendre les entité presentes dans (P.rel - H.rel))
+        cols = ['head_word', 'relation', 'tail_word', 'score', 'info_scored']
 
-        target_sentences = self._triples_to_sentences(target.get_rel() - source.get_rel())
-        ## Triplets non resolues de target sous forme de phrase pour le cross encodeur
+        unresolved = self._triples_to_sentences(target.get_rel() - source.get_rel()) ## Soustraire 'e' & 'rel' si P(x, rel, e) et H(y, rel, e) ??
+        if not unresolved:
+            return pd.DataFrame(columns=cols)
 
-        ## for _ in range d : Forward
-        ###### Entity snap
-        ###### Score link forwardé avec target_sentences
+        start_entities = source.get_entities() - target.get_entities() #set([t[i] for t in (H.get_rel() - P.get_rel()) for i in (0,2)])
+        target_entities = target.get_entities() - source.get_entities()
 
-        ## Reconstruct les paths
-        ## Scorer les paths
+        next_col = 'tail_word' if forward else 'head_word'
+        prev_col = 'head_word' if forward else 'tail_word'
 
-        # renvoyer les paths avec un score superieur a threshold (2 df, un df avec [id_path, e1, rel, e2] l'autre avec [id_path, score_path])
+        hops = []
+        for _ in range(dist):
+            if not start_entities :
+                break
+
+            df = self._get_rel_nodes(start_entities, forward= forward).copy()
+            if df.empty :
+                break
+
+            match_mask = df[next_col].isin(target_entities)
+            df['score'] = 0.0
+            df['info_scored'] = None
+
+            df.loc[match_mask, 'score'] = 1.
+            df.loc[match_mask, 'info_scored'] = df.loc[match_mask, next_col]
+
+
+            rest = df.loc[~match_mask]
+            if len(rest):
+                sents = self._triples_to_sentences([(h, r, t) for h, r, t in rest[['head_word', 'relation', 'tail_word']].itertuples(index=False, name=None)])
+                scores, best = self._max_scores(sents, unresolved)
+                df.loc[~match_mask, 'score'] = scores
+                df.loc[~match_mask, 'info_scored'] = np.array(best, dtype=object)
+
+            df = df[df['score'] >= threshold_link]
+            if df.empty:
+                break
+            hops.append(df)
+            
+            start_entities = set(df[next_col]) - target_entities
+
+        if not hops:
+            return pd.DataFrame(columns=cols)
+        
+        return self._reconstruct_paths(hops, threshold= threshold_path)

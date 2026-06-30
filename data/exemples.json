@@ -9,7 +9,7 @@
     },
     {
         "input": "Simon didn't call me back. He must be busy.",
-        "output": [["Simon", "PerformsAction", "not call"], ["me", "ReceivesAction", "not call"], ["Simon", "CanBe", "busy"]]
+        "output": [["Simon", "PerformsAction", "not call"], ["me", "ReceivesAction", "not call"], ["Simon", "HasProperty", "busy"]]
     },
     {
         "input": "No politicians attended the meeting.",
@@ -17,11 +17,11 @@
     },
     {
         "input": "He has the french nationality.",
-        "output": [["He", "HasA", "nationality"], ["nationality", "HasContext", "french"]]
+        "output": [["He", "HasA", "nationality"], ["nationality", "HasProperty", "french"]]
     },
     {
         "input": "The chef cooked dinner for the guests last night.",
-        "output": [["chef", "PerformsAction", "cooked"], ["dinner", "ReceivesAction", "cooked"], ["cooked", "HasContext", "guests"], ["cooked", "AtTime", "last night"]]
+        "output": [["chef", "PerformsAction", "cooked"], ["dinner", "ReceivesAction", "cooked"], ["cooked", "AtTime", "last night"]]
     },
     {
         "input": "The game took place in New York during christmas.",
@@ -29,19 +29,19 @@
     },
     {
         "input": "While driving to work, he saw a deer.",
-        "output": [["He", "PerformsAction", "driving"], ["driving", "HasContext", "work"], ["driving", "HasSubevent", "saw"], ["He", "PerformsAction", "saw"], ["deer", "ReceivesAction", "saw"]]
+        "output": [["He", "PerformsAction", "driving"], ["driving", "AtLocation", "work"], ["driving", "HasSubevent", "saw"], ["He", "PerformsAction", "saw"], ["deer", "ReceivesAction", "saw"]]
     },
     {
         "input": "His dog is allergic to chocolate.",
-        "output": [["His dog", "HasProperty", "allergic"], ["allergic", "HasContext", "chocolate"]]
+        "output": [["dog", "HasProperty", "allergic"]]
     },
     {
         "input": "He seems angry, he might leave the room.",
-        "output": [["He", "Possibly", "angry"], ["He", "Possibly", "leave the room"]]
+        "output": [["He", "HasProperty", "angry"], ["He", "PerformsAction", "leave"], ["room", "ReceivesAction", "leave"]]
     },
     {
         "input": "The human body contains two kidneys.",
-        "output": [["human body", "Contains", "kidneys"], ["kidneys", "HasQuantity", "Two"]]
+        "output": [["human body", "Contains", "kidneys"], ["kidneys", "HasQuantity", "two"]]
     },
     {
         "input": "Three birds are sitting on the roof.",
@@ -61,15 +61,46 @@
     },
     {
         "input": "He must be sick.",
-        "output": [["He", "HasProperty", "sick"], ["sick", "HasModality", "Certainty"]]
+        "output": [["He", "HasProperty", "sick"]]
     },
     {
         "input": "His boss told him to stay at work.",
-        "output": [["His boss", "PerformsAction", "told"], ["he", "ReceivesAction", "told"], ["he", "PerformsAction", "stay"],["told", "HasContext", "stay"],["stay", "AtLocation", "work"], ["stay", "HasModality", "Obligation"]]
+        "output": [["boss", "PerformsAction", "told"], ["he", "ReceivesAction", "told"], ["he", "PerformsAction", "stay"], ["stay", "AtLocation", "work"]]
     },
     {
         "input": "Five cats are fighting.",
         "output": [["cats", "PerformsAction", "fighting"], ["cats", "HasQuantity", "five"]]
+    },
+    {
+        "input": "A dog is an animal that can bark.",
+        "output": [["dog", "IsA", "animal"], ["dog", "CapableOf", "bark"]]
+    },
+    {
+        "input": "The wheel is a part of the car.",
+        "output": [["wheel", "PartOf", "car"]]
+    },
+    {
+        "input": "The table is made of wood.",
+        "output": [["table", "MadeOf", "wood"]]
+    },
+    {
+        "input": "The weather is hot.",
+        "output": [["weather", "HasProperty", "hot"]]
+    },
+    {
+        "input": "The movie was big, and the film was huge.",
+        "output": [["movie", "HasProperty", "big"], ["film", "HasProperty", "huge"]]
+    },
+    {
+        "input": "To start the car, you need a key.",
+        "output": [["car", "ReceivesAction", "start"], ["start", "HasPrerequisite", "key"]]
+    },
+    {
+        "input": "An old man is sleeping.",
+        "output": [["man", "HasProperty", "old"], ["man", "PerformsAction", "sleeping"]]
+    },
+    {
+        "input": "The ice cream is cold.",
+        "output": [["ice cream", "HasProperty", "cold"]]
     }
-
 ]

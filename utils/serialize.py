@@ -1,6 +1,5 @@
-import json
-
 from .graph import KnowledgeGraph
+import json
 
 def kg_to_dict(kg):
     return {
