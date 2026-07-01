@@ -12,9 +12,9 @@ class ConceptGraph():
     def __init__(self, lang = 'en', device = "cuda"):
         self.device = device
         self.cross = CrossEncoder(CROSS_NAME, device=self.device)
-        self.data = pd.read_csv(f'data/concept_net_{lang}.csv')
-
-        self.data = self.data[['head_word', 'relation', 'tail_word', 'weight']]
+        
+        data_raw = pd.read_csv(f'data/concept_net_{lang}.csv')
+        self.data = data_raw[['head_word', 'relation', 'tail_word', 'weight']]
 
         self.fwd = {w: g for w, g in self.data.groupby('head_word', sort=False)}
         self.bwd = {w: g for w, g in self.data.groupby('tail_word', sort=False)}
@@ -111,7 +111,7 @@ class ConceptGraph():
     def _score_path(scores, alpha = 0.5):
         return alpha*np.mean(scores)+(1-alpha)*np.max(scores)
     
-    def _reconstruct_paths(self, hop, threshold):
+    def _reconstruct_paths(self, hop, threshold= 0.5):
         edge_cols = ['id_path', 'head', 'rel', 'tail', 'score_link', 'info_scored']
         path_cols = ['id_path', 'score_path']
         if not hop or hop[0].empty:
@@ -156,15 +156,16 @@ class ConceptGraph():
                 pd.DataFrame(path_rows, columns=path_cols))
 
     def _triples_to_sentences(self, triples):
-        return [f"{h} {self.relation_to_sentence[r]} {t}" for (h, r, t, *_) in triples]
+        return [f"{h} {self.relation_to_sentence.get(r, r)} {t}" for (h, r, t, *_) in triples]
 
     def _max_scores(self, links, sentences):
         links = list(links); sentences = list(sentences)
         if not links or not sentences:
-            return np.zeros(len(links))
+            return np.zeros(len(links)), [None] * len(links)
         pairs = [(l, s) for l in links for s in sentences]
         sc = np.asarray(self.cross.predict(pairs), dtype=float).reshape(len(links), len(sentences))
-        return sc.max(axis=1)
+        j = sc.argmax(axis=1)
+        return sc[np.arange(len(links)), j], [sentences[k] for k in j]
 
     def get_relevant_data(self, source, target, threshold_link = 0.3, threshold_path= 0.5, forward = True, dist = 1):
         # Garder le seuil pour les chemins, mais faire un top_k (proportionnel à unresolved) pour garder les liens ?
@@ -173,12 +174,12 @@ class ConceptGraph():
 
         cols = ['head_word', 'relation', 'tail_word', 'score', 'info_scored']
 
-        unresolved = self._triples_to_sentences(target.get_rel() - source.get_rel()) ## Soustraire 'e' & 'rel' si P(x, rel, e) et H(y, rel, e) ??
+        unresolved = self._triples_to_sentences(target.get_rel(sentence=True) - source.get_rel(sentence=True)) ## Soustraire 'e' & 'rel' si P(x, rel, e) et H(y, rel, e) ??
         if not unresolved:
-            return pd.DataFrame(columns=cols)
+            return self._reconstruct_paths([])
 
-        start_entities = source.get_entities() - target.get_entities() #set([t[i] for t in (H.get_rel() - P.get_rel()) for i in (0,2)])
-        target_entities = target.get_entities() - source.get_entities()
+        start_entities = source.get_entities(sentence=True) - target.get_entities(sentence=True) #set([t[i] for t in (H.get_rel() - P.get_rel()) for i in (0,2)])
+        target_entities = target.get_entities(sentence=True) - source.get_entities(sentence=True)
 
         next_col = 'tail_word' if forward else 'head_word'
         prev_col = 'head_word' if forward else 'tail_word'
@@ -188,7 +189,7 @@ class ConceptGraph():
             if not start_entities :
                 break
 
-            df = self._get_rel_nodes(start_entities, forward= forward).copy()
+            df = self.get_rel_nodes(start_entities, forward= forward).copy()
             if df.empty :
                 break
 
@@ -213,8 +214,5 @@ class ConceptGraph():
             hops.append(df)
             
             start_entities = set(df[next_col]) - target_entities
-
-        if not hops:
-            return pd.DataFrame(columns=cols)
         
         return self._reconstruct_paths(hops, threshold= threshold_path)

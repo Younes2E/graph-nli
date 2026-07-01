@@ -1,16 +1,13 @@
 from transformers import AutoTokenizer
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 import networkx as nx
 import spacy
 import json
 import re
 import os
 
-# On décode en greedy (temperature=0) : le sampler FlashInfer de vLLM est inutile, et
-# sa compilation JIT échoue dans cet environnement. Doit être positionné AVANT vllm.
 os.environ.setdefault("VLLM_USE_FLASHINFER_SAMPLER", "0")
-# Worker vLLM en 'spawn' : évite "Cannot re-initialize CUDA in forked subprocess" quand
-# CUDA est touché dans le parent avant le LLM (ex. import spacy/thinc). AVANT vllm.
 os.environ.setdefault("VLLM_WORKER_MULTIPROC_METHOD", "spawn")
 
 _DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir, "data")
@@ -81,9 +78,6 @@ class GraphBuilder:
         gc.collect()
         torch.cuda.empty_cache()
 
-    # ------------------------------------------------------------------ #
-    # Génération (le bon modèle doit être chargé)
-    # ------------------------------------------------------------------ #
     def extract_atomic_prop_batch(self, texts):
         from vllm import SamplingParams
         prompts = [
@@ -97,23 +91,16 @@ class GraphBuilder:
 
     @staticmethod
     def _parse_props(text):
-        """Parse la sortie du Propositioneur en liste de propositions.
-
-        Tolérant aux sorties tronquées / qui bouclent (le modèle répète une phrase
-        sans fermer le JSON) : on garde les chaînes JSON COMPLÈTES (bien fermées) et
-        on déduplique. Une sortie correcte est parsée normalement.
-        """
         text = text.strip()
         try:
-            return list(dict.fromkeys(json.loads(text)))  # cas normal, dédup ordonnée
+            return list(dict.fromkeys(json.loads(text)))
         except Exception:
             pass
-        # JSON cassé : extraire les chaînes "..." complètes, ignorer la dernière tronquée.
         out, seen = [], set()
         for s in re.findall(r'"((?:[^"\\]|\\.)*)"', text):
             if "\\" in s:
                 try:
-                    s = json.loads(f'"{s}"')  # déséchapper proprement (\\', \\n, ...)
+                    s = json.loads(f'"{s}"')
                 except Exception:
                     pass
             if s and s not in seen:
@@ -122,7 +109,6 @@ class GraphBuilder:
         return out
 
     def extract_triples_batch(self, props):
-        """list[str] -> list[list[tuple]] : triplets (s, rel, o) par proposition."""
         from vllm import SamplingParams
         prompts = [self._triples_prompt(p) for p in props]
         outputs = self.llm.generate(prompts, SamplingParams(temperature=0.0, max_tokens=512))
@@ -181,13 +167,6 @@ class GraphBuilder:
         return "_".join(lemmas)
 
     def _parse_triples(self, content):
-        """Parse robuste de la sortie Qwen en list[tuple(s, rel, o)].
-
-        - split sur '|' tolérant aux espaces ;
-        - ignore les lignes de préambule/markdown (pas exactement 3 champs) ;
-        - retire d'éventuels crochets [..] ;
-        - VALIDE la relation : on jette les triplets dont la relation n'est pas dans `ie`.
-        """
         triples = []
         for line in content.split("\n"):
             line = line.strip().strip("`").strip()
@@ -205,22 +184,12 @@ class GraphBuilder:
         return triples
 
     def build_batch(self, texts, batch_size=512, show_progress=True):
-        """list[str] -> list[KnowledgeGraph].
-
-        Orchestration complète en deux passes, un seul modèle en VRAM à la fois :
-          1. charge le Propositioneur, atomise TOUT (par chunks de batch_size) ;
-          2. décharge, charge Qwen, extrait les triplets de TOUTES les propositions ;
-          3. décharge, regroupe par texte d'origine.
-        tqdm affiche l'avancement de chaque passe.
-        """
-        from tqdm import tqdm
         texts = list(texts)
 
         def chunks(seq):
             for i in range(0, len(seq), batch_size):
                 yield seq[i:i + batch_size]
 
-        # --- Passe 1 : propositions ---
         self.load("prop")
         props_per_text = []
         it = chunks(texts)
@@ -229,14 +198,12 @@ class GraphBuilder:
         for batch in it:
             props_per_text.extend(self.extract_atomic_prop_batch(batch))
 
-        # Mise à plat des propositions (en gardant l'indice du texte d'origine).
         flat_props, owners = [], []
         for i, props in enumerate(props_per_text):
             for p in props:
                 flat_props.append(p)
                 owners.append(i)
 
-        # --- Passe 2 : triplets ---
         self.load("qwen")
         triples_per_prop = []
         it = chunks(flat_props)
@@ -246,14 +213,12 @@ class GraphBuilder:
             triples_per_prop.extend(self.extract_triples_batch(batch))
         self.unload()
 
-        # Regroupement par texte.
         per_text = [set() for _ in texts]
         for owner, triples in zip(owners, triples_per_prop):
             per_text[owner].update(triples)
         return [KnowledgeGraph(t, tr) for t, tr in zip(texts, per_text)]
 
     def build(self, text):
-        """str -> KnowledgeGraph (debug ; charge/décharge les deux modèles)."""
         return self.build_batch([text], show_progress=False)[0]
 
 
@@ -264,8 +229,9 @@ class KnowledgeGraph:
         self.triples_augmented = set()
         self.entities = {t[i]: True for t in triples for i in (0, 2)}
 
-    def augment(self, triples):
-        self.triples_augmented.update([(t[0],t[1],t[2]) for t in triples])
+    def augment(self, data):
+        triples = [(h, r, t) for h, r, t in data[['head', 'rel', 'tail']].itertuples(index=False, name=None)]
+        self.triples_augmented.update(triples)
         for t in triples:
             self.entities.setdefault(t[0], False)
             self.entities.setdefault(t[2], False)

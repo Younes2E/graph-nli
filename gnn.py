@@ -151,9 +151,12 @@ class NLIGraphDataset(Dataset):
         r = self.rows[i]
         px, pei, pet, pea = self._build_graph(r["premise_triples"], r["premise"])
         hx, hei, het, hea = self._build_graph(r["hypothesis_triples"], r["hypothesis"])
+        # embedding de phrase brut (nœud 0 = global node = MiniLM(sentence)) pour la FUSION
+        # texte+graphe ; shape [1, EMB_DIM] -> après batching PyG : [num_graphs, EMB_DIM].
         return PairData(
             p_x=px, p_edge_index=pei, p_edge_type=pet, p_edge_attr=pea,
             h_x=hx, h_edge_index=hei, h_edge_type=het, h_edge_attr=hea,
+            p_s=px[0:1], h_s=hx[0:1],
             y=torch.tensor([r["label"]], dtype=torch.long),
         )
 
@@ -162,26 +165,33 @@ class NLIGraphDataset(Dataset):
 # Modèle RGAT
 # --------------------------------------------------------------------------- #
 class RGAT(nn.Module):
-    """RGAT + matching croisé P<->H (style Graph Matching Network).
+    """RGAT + matching croisé P<->H (style Graph Matching Network) + FUSION texte.
 
     Au lieu de pooler chaque graphe puis comparer les vecteurs (le pooling cassait la
     structure), on garde les embeddings de NŒUDS, puis chaque nœud d'un graphe fait une
     attention croisée sur les nœuds de l'autre. Le RÉSIDU non-matché (`x - x_match`) encode
     directement l'alignement structurel : si H ⊆ P, chaque nœud de H matche bien dans P ->
     résidu H ≈ 0 (signal d'entailment). C'est ce résidu (poolé) qui nourrit le classifieur.
+
+    FUSION texte+graphe (inspiré MHGRN) : le graphe de triplets est incomplet (temps, modalité,
+    disjonction, portée de négation...). On CONCATÈNE donc l'embedding MiniLM des phrases P/H
+    (s_P, s_H) aux features de matching avant le classifieur : le texte porte ce que le graphe
+    rate, le graphe porte le raisonnement structurel.
     """
     def __init__(self, num_relations, hidden=128, heads=4, out_classes=3, dropout=0.2):
         super().__init__()
         self.proj_node = nn.Linear(EMB_DIM, hidden)   # 384 -> hidden (nœuds)
         self.proj_edge = nn.Linear(EMB_DIM, hidden)   # 384 -> hidden (relations)
+        self.proj_text = nn.Linear(EMB_DIM, hidden)   # 384 -> hidden (phrases P/H, fusion)
         self.rgat1 = RGATConv(hidden, hidden, num_relations, heads=heads,
                               concat=False, edge_dim=hidden)
         self.rgat2 = RGATConv(hidden, hidden, num_relations, heads=heads,
                               concat=False, edge_dim=hidden)
         self.scale = hidden ** 0.5
-        # entrée = [pool(P), pool(H), pool(résidu P), pool(résidu H)] = 4*hidden
+        # entrée = matching [pool(P), pool(H), pool(résidu P), pool(résidu H)] (4*hidden)
+        #        + texte [s_P, s_H, |s_P-s_H|, s_P*s_H] (4*hidden) = 8*hidden
         self.classifier = nn.Sequential(
-            nn.Linear(hidden * 4, hidden), nn.GELU(), nn.Dropout(dropout),
+            nn.Linear(hidden * 8, hidden), nn.GELU(), nn.Dropout(dropout),
             nn.Linear(hidden, out_classes),
         )
 
@@ -218,7 +228,11 @@ class RGAT(nn.Module):
         p_emb = self.encode_nodes(data.p_x, data.p_edge_index, data.p_edge_type, data.p_edge_attr)
         h_emb = self.encode_nodes(data.h_x, data.h_edge_index, data.h_edge_type, data.h_edge_attr)
         feats = self._cross_match(p_emb, data.p_x_batch, h_emb, data.h_x_batch, data.num_graphs)
-        return self.classifier(feats)
+        # FUSION texte : embeddings de phrase P/H projetés -> [s_P, s_H, |s_P-s_H|, s_P*s_H]
+        s_p = self.proj_text(data.p_s)          # [num_graphs, hidden]
+        s_h = self.proj_text(data.h_s)          # [num_graphs, hidden]
+        text_feats = torch.cat([s_p, s_h, (s_p - s_h).abs(), s_p * s_h], dim=1)
+        return self.classifier(torch.cat([feats, text_feats], dim=1))
 
 
 # --------------------------------------------------------------------------- #
